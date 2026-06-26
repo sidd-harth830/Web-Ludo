@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { insforge } from '../lib/insforge';
 import type { PlayerColor } from '../store/gameStore';
-import { Users, Bot, Settings2 } from 'lucide-react';
+import { Users, Bot, User } from 'lucide-react';
 
 const COLORS: PlayerColor[] = ['emerald', 'blue', 'red', 'amber'];
 
 export const Home: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'join' | 'host'>('join');
   const [code, setCode] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,11 @@ export const Home: React.FC = () => {
     const queryCode = searchParams.get('code');
     if (queryCode) {
       setCode(queryCode);
+      setActiveTab('join');
     }
+    
+    const savedName = localStorage.getItem('ludo_username');
+    if (savedName) setUsername(savedName);
   }, [searchParams]);
 
   const toggleBot = (color: PlayerColor) => {
@@ -41,12 +46,13 @@ export const Home: React.FC = () => {
   const handleJoinOrCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) return alert('Please enter a username');
+    if (activeTab === 'join' && !code.trim()) return alert('Please enter a room code');
     
     setLoading(true);
-    let roomCode = code.trim().toUpperCase();
+    let roomCode = activeTab === 'join' ? code.trim().toUpperCase() : generateComplexCode();
     
     try {
-      // 1. Ensure user exists
+      // Ensure user exists
       let userId: string;
       const { data: users } = await insforge.database.from('users').select('id').eq('username', username).maybeSingle();
       
@@ -62,8 +68,7 @@ export const Home: React.FC = () => {
       localStorage.setItem('ludo_username', username);
 
       let roomId: string;
-      if (!roomCode) {
-        roomCode = generateComplexCode();
+      if (activeTab === 'host') {
         const gameState = { playerCount, bots };
         const expiresAt = new Date(Date.now() + 30 * 60000).toISOString();
 
@@ -109,58 +114,79 @@ export const Home: React.FC = () => {
   const activeColors = COLORS.slice(0, playerCount);
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4">
-      <div className="glass-panel w-full max-w-md p-8 flex flex-col gap-6 relative z-10 transition-all">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent mb-2">Web Ludo</h1>
-          <p className="text-slate-500 dark:text-slate-400">Real-time multiplayer board game</p>
+    <div className="flex-1 flex flex-col items-center justify-center p-4">
+      <div className="mb-8 text-center">
+        <h1 className="text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 mb-2">Web Ludo</h1>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">Multiplayer Board Game Platform</p>
+      </div>
+
+      <div className="glass-panel w-full max-w-md bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+        {/* Tabs */}
+        <div className="flex border-b border-zinc-200 dark:border-zinc-800">
+          <button
+            type="button"
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${activeTab === 'join' ? 'text-zinc-900 dark:text-zinc-50 border-b-2 border-zinc-900 dark:border-zinc-50 bg-zinc-50 dark:bg-zinc-800/50' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/30'}`}
+            onClick={() => setActiveTab('join')}
+          >
+            Join Game
+          </button>
+          <button
+            type="button"
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${activeTab === 'host' ? 'text-zinc-900 dark:text-zinc-50 border-b-2 border-zinc-900 dark:border-zinc-50 bg-zinc-50 dark:bg-zinc-800/50' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/30'}`}
+            onClick={() => setActiveTab('host')}
+          >
+            Host Game
+          </button>
         </div>
 
-        <form onSubmit={handleJoinOrCreate} className="flex flex-col gap-6">
+        <form onSubmit={handleJoinOrCreate} className="p-6 flex flex-col gap-6">
           <div className="space-y-4">
+            {/* Username Input - Shared */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Username</label>
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase tracking-wide">Username</label>
               <input 
                 type="text" 
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-colors shadow-inner"
+                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 transition-all"
                 placeholder="Enter your name"
               />
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Room Code (optional)</label>
-              <input 
-                type="text" 
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-2 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-colors uppercase shadow-inner"
-                placeholder="Leave blank to create new room"
-              />
-            </div>
+            {/* Join Room Specific */}
+            {activeTab === 'join' && (
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase tracking-wide">Room Code</label>
+                <input 
+                  type="text" 
+                  required
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 transition-all uppercase font-mono"
+                  placeholder="e.g. A1B2-C3D4-E5F6"
+                />
+              </div>
+            )}
           </div>
 
-          {!code && (
-            <div className="bg-white/40 dark:bg-white/5 p-4 rounded-xl border border-slate-200/50 dark:border-white/10 space-y-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <Settings2 size={18} className="text-emerald-500" />
-                <h3 className="font-semibold text-slate-800 dark:text-slate-200">Room Configuration</h3>
-              </div>
+          {/* Host Room Specific */}
+          {activeTab === 'host' && (
+            <div className="space-y-6 pt-2 border-t border-zinc-100 dark:border-zinc-800">
               
+              {/* Segmented Control for Players */}
               <div>
-                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Players</label>
-                <div className="flex gap-2">
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2 uppercase tracking-wide">Total Players</label>
+                <div className="flex bg-zinc-100 dark:bg-zinc-950 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800">
                   {[2, 3, 4].map(num => (
                     <button
                       key={num}
                       type="button"
                       onClick={() => setPlayerCount(num)}
-                      className={`flex-1 py-1.5 rounded-md text-sm font-semibold transition-all ${
+                      className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${
                         playerCount === num 
-                          ? 'bg-emerald-500 text-white shadow-md' 
-                          : 'bg-slate-200/50 dark:bg-black/30 text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-black/50'
+                          ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 shadow-sm border border-zinc-200 dark:border-zinc-700' 
+                          : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
                       }`}
                     >
                       {num}
@@ -169,26 +195,34 @@ export const Home: React.FC = () => {
                 </div>
               </div>
 
+              {/* Slot Setup */}
               <div>
-                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Slot Setup (Bots)</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2 uppercase tracking-wide">Slot Configuration</label>
+                <div className="flex flex-col gap-2">
                   {activeColors.map((color, idx) => (
-                    <div key={color} className="flex items-center justify-between p-2 rounded bg-slate-100/80 dark:bg-black/20 border border-slate-200 dark:border-white/5">
-                      <span className={`text-xs font-bold text-${color}-500 dark:text-${color}-400 capitalize`}>
-                        {idx === 0 ? 'You (P1)' : `P${idx+1} (${color})`}
-                      </span>
+                    <div key={color} className="flex items-center justify-between p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full bg-${color}-500 shadow-[inset_0_1px_2px_rgba(255,255,255,0.3)]`} />
+                        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                          {idx === 0 ? 'Host (You)' : `Player ${idx+1}`}
+                        </span>
+                      </div>
+                      
                       {idx > 0 && (
                         <button
                           type="button"
                           onClick={() => toggleBot(color)}
-                          className={`p-1.5 rounded-md transition-colors ${
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all border ${
                             bots[color] 
-                              ? 'bg-blue-500 shadow-md text-white' 
-                              : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                              ? 'bg-zinc-900 dark:bg-zinc-100 text-zinc-50 dark:text-zinc-900 border-zinc-900 dark:border-zinc-100' 
+                              : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700'
                           }`}
-                          title={bots[color] ? "Bot Player" : "Human Player"}
                         >
-                          {bots[color] ? <Bot size={14} /> : <Users size={14} />}
+                          {bots[color] ? (
+                            <><Bot size={14} /> AI Bot</>
+                          ) : (
+                            <><User size={14} /> Human</>
+                          )}
                         </button>
                       )}
                     </div>
@@ -201,9 +235,9 @@ export const Home: React.FC = () => {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-400 hover:to-blue-500 disabled:opacity-50 px-4 py-3 rounded-lg font-bold shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all hover:scale-[1.02] text-white"
+            className="w-full bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors shadow-sm mt-2 flex items-center justify-center gap-2"
           >
-            {loading ? 'Joining...' : (code ? 'Join Room' : 'Create Game')}
+            {loading ? 'Processing...' : (activeTab === 'join' ? 'Join Room' : 'Create Game')}
           </button>
         </form>
       </div>

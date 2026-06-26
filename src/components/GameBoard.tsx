@@ -2,12 +2,10 @@ import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import type { PlayerColor } from '../store/gameStore';
 import { TokenComponent } from './Token';
-import { Dice3, Star } from 'lucide-react';
+import { Dice3, Star, User } from 'lucide-react';
 
-// Pre-calculated coordinates for a 15x15 grid
 const generateTrackCoords = () => {
   const coords: { x: number; y: number }[] = [];
-  // Starting from top-left (Emerald start)
   for (let i = 1; i <= 5; i++) coords.push({ x: 6, y: i });
   for (let i = 5; i >= 0; i--) coords.push({ x: i, y: 6 });
   coords.push({ x: 0, y: 7 });
@@ -30,10 +28,10 @@ const generateTrackCoords = () => {
 const TRACK_COORDS = generateTrackCoords();
 
 const HOME_PATHS: Record<PlayerColor, { x: number; y: number }[]> = {
-  emerald: Array.from({ length: 5 }, (_, i) => ({ x: 7, y: i + 1 })), // Top down
-  red: Array.from({ length: 5 }, (_, i) => ({ x: i + 1, y: 7 })), // Left right
-  blue: Array.from({ length: 5 }, (_, i) => ({ x: 7, y: 13 - i })), // Bottom up
-  amber: Array.from({ length: 5 }, (_, i) => ({ x: 13 - i, y: 7 })), // Right left
+  emerald: Array.from({ length: 5 }, (_, i) => ({ x: 7, y: i + 1 })),
+  red: Array.from({ length: 5 }, (_, i) => ({ x: i + 1, y: 7 })),
+  blue: Array.from({ length: 5 }, (_, i) => ({ x: 7, y: 13 - i })),
+  amber: Array.from({ length: 5 }, (_, i) => ({ x: 13 - i, y: 7 })),
 };
 
 const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
@@ -49,36 +47,36 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
   };
 
   return (
-    <div className="flex flex-col items-center justify-center gap-2 w-full h-full min-h-0 min-w-0">
+    <div className="flex flex-col items-center justify-center gap-4 w-full h-full min-h-0 min-w-0">
       
       {/* Game Header */}
-      <div className="glass-panel p-2 flex gap-4 items-center justify-center w-full max-w-md shrink-0">
-        <div className="flex flex-col items-center">
-          <span className="text-xs sm:text-sm opacity-70">Current Turn</span>
-          <div className="flex items-center gap-2 mt-1">
-            <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-${currentTurn}-500 shadow-[0_0_10px_rgba(255,255,255,0.5)]`} />
-            <span className="font-bold capitalize text-sm sm:text-base">
-              {colorNames[currentTurn] || currentTurn}
+      <div className="glass-panel p-3 flex gap-4 items-center justify-between w-full max-w-md shrink-0 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
+        <div className="flex flex-col">
+          <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 dark:text-zinc-400">Current Turn</span>
+          <div className="flex items-center gap-2 mt-0.5">
+            <div className={`w-3 h-3 rounded-full bg-${currentTurn}-500 shadow-sm`} />
+            <span className="font-bold text-sm text-zinc-900 dark:text-zinc-50 flex items-center gap-1.5">
+              <User size={14} className="opacity-70" /> {colorNames[currentTurn] || currentTurn}
             </span>
           </div>
         </div>
 
-        <div className="h-8 w-px bg-[var(--panel-border)]" />
+        <div className="h-10 w-px bg-zinc-200 dark:bg-zinc-800" />
 
         <div className="flex flex-col items-center relative">
-          <span className="text-xs sm:text-sm opacity-70">Dice Roll</span>
-          <div className="font-bold text-lg sm:text-xl w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center bg-[var(--panel-border)] rounded-md text-[var(--text-primary)]">
+          <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 dark:text-zinc-400">Dice Roll</span>
+          <div className="font-bold text-lg w-8 h-8 flex items-center justify-center bg-zinc-100 dark:bg-zinc-950 rounded border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 mt-0.5">
             {diceRoll || '-'}
           </div>
           {consecutiveSixes > 0 && (
-            <span className="text-[10px] text-red-500 absolute -bottom-4 whitespace-nowrap">Consecutive 6s: {consecutiveSixes}</span>
+            <span className="text-[10px] text-red-500 absolute -bottom-5 whitespace-nowrap font-medium">Consecutive 6s: {consecutiveSixes}</span>
           )}
         </div>
 
         <button 
           onClick={handleRoll}
           disabled={currentTurn !== playerColor || diceRoll !== null || isRolling}
-          className="bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 sm:px-4 sm:py-2 rounded-lg font-semibold transition-all flex items-center gap-2 text-xs sm:text-sm ml-2"
+          className="bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-md font-semibold transition-colors flex items-center gap-2 text-sm shadow-sm"
         >
           <Dice3 size={16} />
           Roll
@@ -86,9 +84,9 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
       </div>
 
       {/* Board */}
-      <div className="flex-1 w-full h-full min-h-0 flex items-center justify-center overflow-hidden pt-4 md:pt-0">
+      <div className="flex-1 w-full h-full min-h-0 flex items-center justify-center overflow-hidden">
         <div 
-          className="relative glass-panel p-1 shadow-2xl backdrop-blur-sm mx-auto"
+          className="relative glass-panel p-1.5 shadow-sm mx-auto bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
           style={{ 
             width: '100%', 
             maxWidth: 'min(100%, 75vh)', // Strictly prevents vertical overflow
@@ -96,7 +94,7 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
           }}
         >
           <div 
-            className="grid gap-0 bg-[var(--panel-border)] p-1 rounded-xl w-full h-full"
+            className="grid gap-0 bg-zinc-200 dark:bg-zinc-800 p-1 rounded-lg w-full h-full"
             style={{ 
               gridTemplateColumns: 'repeat(15, minmax(0, 1fr))',
               gridTemplateRows: 'repeat(15, minmax(0, 1fr))'
@@ -116,10 +114,10 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
             return (
               <div 
                 key={`track-${idx}`} 
-                className={`relative flex items-center justify-center border-[0.5px] border-black/5 dark:border-white/5 bg-[var(--bg-primary)]`}
+                className={`relative flex items-center justify-center border-[0.5px] border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950`}
                 style={{ gridColumn: coord.x + 1, gridRow: coord.y + 1 }}
               >
-                {isSafe && <Star className="absolute w-1/2 h-1/2 text-[var(--panel-border)] opacity-50" fill="currentColor" />}
+                {isSafe && <Star className="absolute w-1/2 h-1/2 text-zinc-300 dark:text-zinc-700 opacity-50" fill="currentColor" />}
                 <div className="flex flex-wrap items-center justify-center gap-[2px] w-full h-full p-[2px] z-10">
                   {ts.map(t => (
                     <TokenComponent 
@@ -142,7 +140,7 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
               return (
                 <div 
                   key={`home-${color}-${idx}`} 
-                  className={`border-[0.5px] border-black/10 dark:border-white/10 flex items-center justify-center bg-${color}-500`}
+                  className={`border-[0.5px] border-black/10 dark:border-white/10 flex items-center justify-center bg-${color}-500/80`}
                   style={{ gridColumn: coord.x + 1, gridRow: coord.y + 1 }}
                 >
                   {ts.map(t => (
@@ -160,7 +158,7 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
           ))}
 
           {/* Center Goal */}
-          <div className="col-start-7 col-end-10 row-start-7 row-end-10 relative overflow-hidden bg-[var(--bg-primary)]">
+          <div className="col-start-7 col-end-10 row-start-7 row-end-10 relative overflow-hidden bg-zinc-100 dark:bg-zinc-900">
              <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full preserve-3d" preserveAspectRatio="none">
                 <polygon points="0,0 100,0 50,50" fill="#10b981" /> {/* top emerald */}
                 <polygon points="100,0 100,100 50,50" fill="#f59e0b" /> {/* right amber */}
@@ -169,7 +167,7 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
              </svg>
              <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-1 p-2">
                 {tokens.filter(t => t.state === 'goal').map(t => (
-                  <TokenComponent key={`${t.color}-${t.id}`} color={t.color} className="w-3 h-3 sm:w-4 sm:h-4 opacity-80" />
+                  <TokenComponent key={`${t.color}-${t.id}`} color={t.color} className="w-3 h-3 sm:w-4 sm:h-4 opacity-90" />
                 ))}
              </div>
           </div>
@@ -189,10 +187,10 @@ const BaseArea: React.FC<{ color: PlayerColor, x: number, y: number, tokens: any
       className={`bg-${color}-500 relative flex items-center justify-center border-[0.5px] border-black/20`}
       style={{ gridColumn: `${x + 1} / span 6`, gridRow: `${y + 1} / span 6` }}
     >
-        <div className={`bg-[var(--bg-primary)] w-[65%] h-[65%] rounded-lg p-2 sm:p-4 shadow-inner flex items-center justify-center`}>
-           <div className="grid grid-cols-2 grid-rows-2 gap-4 place-items-center w-full h-full">
+        <div className={`bg-white dark:bg-zinc-900 w-[70%] h-[70%] rounded-xl p-2 sm:p-4 shadow-sm flex items-center justify-center`}>
+           <div className="grid grid-cols-2 grid-rows-2 gap-3 place-items-center w-full h-full">
               {baseTokens.map(t => (
-                <div key={t.id} className={`w-6 h-6 sm:w-10 sm:h-10 rounded-full border-4 border-${color}-500 flex items-center justify-center bg-[var(--bg-primary)] shadow-sm`}>
+                <div key={t.id} className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full border-4 border-${color}-500/30 flex items-center justify-center bg-zinc-50 dark:bg-zinc-800`}>
                   <TokenComponent 
                     color={color} 
                     onClick={() => currentTurn === playerColor && color === playerColor && onMove(t.id, color)} 
@@ -202,7 +200,7 @@ const BaseArea: React.FC<{ color: PlayerColor, x: number, y: number, tokens: any
                 </div>
               ))}
               {Array.from({ length: 4 - baseTokens.length }).map((_, i) => (
-                <div key={`empty-${i}`} className={`w-6 h-6 sm:w-10 sm:h-10 rounded-full border-4 border-[var(--panel-border)] flex items-center justify-center bg-[var(--panel-bg)] opacity-50`} />
+                <div key={`empty-${i}`} className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full border-4 border-zinc-200 dark:border-zinc-800 flex items-center justify-center bg-zinc-100 dark:bg-zinc-900/50 opacity-50`} />
               ))}
            </div>
         </div>
