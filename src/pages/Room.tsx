@@ -5,7 +5,7 @@ import { GameBoard } from '../components/GameBoard';
 import { ChatPanel } from '../components/ChatPanel';
 import { useGameStore } from '../store/gameStore';
 import type { PlayerColor, GameState } from '../store/gameStore';
-import { MessageSquare, Clock } from 'lucide-react';
+import { MessageSquare, Clock, Copy, Share2, Check } from 'lucide-react';
 
 export const Room: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -15,11 +15,13 @@ export const Room: React.FC = () => {
   const [isHost, setIsHost] = useState(false);
   const [showChat, setShowChat] = useState(false);
   
+  const [roomCode, setRoomCode] = useState<string>('');
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
   const [colorNames, setColorNames] = useState<Record<string, string>>({});
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [isExpired, setIsExpired] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string>('');
+  const [copied, setCopied] = useState(false);
 
   const { setRoom, syncState, currentTurn, tokens, diceRoll } = useGameStore();
   const botWorkerRef = useRef<Worker | null>(null);
@@ -35,8 +37,9 @@ export const Room: React.FC = () => {
 
     const initRoom = async () => {
       // Fetch Room Config & Expiration
-      const { data: roomData } = await insforge.database.from('rooms').select('state, status, expires_at').eq('id', roomId).maybeSingle();
+      const { data: roomData } = await insforge.database.from('rooms').select('code, state, status, expires_at').eq('id', roomId).maybeSingle();
       if (roomData) {
+        setRoomCode((roomData as any).code || '');
         if ((roomData as any).status === 'expired') {
           setIsExpired(true);
         }
@@ -161,13 +164,27 @@ export const Room: React.FC = () => {
     }
   }, [currentTurn, diceRoll, isHost, roomId, tokens, isExpired]);
 
+  const handleCopy = async () => {
+    if (!roomCode) return;
+    await navigator.clipboard.writeText(roomCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = async () => {
+    if (!roomCode) return;
+    await navigator.clipboard.writeText(`${window.location.origin}/?code=${roomCode}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   if (!playerColor || !userId) return <div className="p-8 flex items-center justify-center h-screen bg-[var(--bg-primary)]">Loading Room...</div>;
 
   const state = useGameStore.getState();
   const isBotTurn = state.bots[currentTurn];
 
   return (
-    <div className="h-[100dvh] w-full overflow-hidden flex flex-col md:flex-row bg-[var(--bg-primary)] relative">
+    <div className="fixed inset-0 w-full h-full overflow-hidden flex flex-col md:flex-row bg-[var(--bg-primary)] overscroll-none">
       
       {/* Expiration Overlay */}
       {isExpired && (
@@ -195,18 +212,38 @@ export const Room: React.FC = () => {
           </div>
         )}
 
-        <div className="glass-panel p-5 flex justify-between items-center md:flex-col md:items-start md:gap-4">
+        <div className="glass-panel p-5 flex flex-col gap-4 md:flex-col md:items-start md:gap-4">
+          <div className="w-full flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                Room: <span className="font-mono text-[var(--highlight-secondary)]">{roomCode || roomId?.substring(0, 8)}</span>
+              </h2>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={handleCopy} 
+                className="p-1.5 rounded bg-slate-200/50 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 transition-colors" 
+                title="Copy Code"
+              >
+                {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} className="text-slate-700 dark:text-slate-300" />}
+              </button>
+              <button 
+                onClick={handleShare} 
+                className="p-1.5 rounded bg-slate-200/50 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 transition-colors" 
+                title="Copy Invite Link"
+              >
+                <Share2 size={16} className="text-slate-700 dark:text-slate-300" />
+              </button>
+            </div>
+          </div>
           <div>
-            <h2 className="text-xl font-bold">
-              Room: <span className="font-mono text-[var(--highlight-secondary)]">{roomId?.substring(0, 8)}</span>
-            </h2>
             <p className="text-sm mt-1 opacity-80">
               Playing as <span className={`font-bold text-${playerColor}-500 capitalize`}>{colorNames[playerColor] || playerColor}</span>
             </p>
           </div>
           <button 
             onClick={() => navigate('/')}
-            className="bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 px-4 py-2 rounded-lg transition-colors text-sm font-semibold border border-red-500/30 w-full md:w-auto text-center"
+            className="bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 px-4 py-2 rounded-lg transition-colors text-sm font-semibold border border-red-500/30 w-full md:w-auto text-center mt-2"
           >
             Leave
           </button>

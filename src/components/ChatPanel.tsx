@@ -104,7 +104,7 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
         )}
       </div>
       
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white/30 dark:bg-black/10">
+      <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3 bg-white/30 dark:bg-black/10">
         {messages.length === 0 && (
           <div className="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">
             No messages yet. Say hello!

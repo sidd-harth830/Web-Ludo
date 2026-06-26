@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { insforge } from '../lib/insforge';
 import type { PlayerColor } from '../store/gameStore';
 import { Users, Bot, Settings2 } from 'lucide-react';
@@ -7,6 +7,7 @@ import { Users, Bot, Settings2 } from 'lucide-react';
 const COLORS: PlayerColor[] = ['emerald', 'blue', 'red', 'amber'];
 
 export const Home: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [code, setCode] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,8 +18,24 @@ export const Home: React.FC = () => {
   
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const queryCode = searchParams.get('code');
+    if (queryCode) {
+      setCode(queryCode);
+    }
+  }, [searchParams]);
+
   const toggleBot = (color: PlayerColor) => {
     setBots(prev => ({ ...prev, [color]: !prev[color] }));
+  };
+
+  const generateComplexCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 12; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `${result.slice(0,4)}-${result.slice(4,8)}-${result.slice(8,12)}`;
   };
 
   const handleJoinOrCreate = async (e: React.FormEvent) => {
@@ -46,7 +63,7 @@ export const Home: React.FC = () => {
 
       let roomId: string;
       if (!roomCode) {
-        roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        roomCode = generateComplexCode();
         const gameState = { playerCount, bots };
         const expiresAt = new Date(Date.now() + 30 * 60000).toISOString();
 
