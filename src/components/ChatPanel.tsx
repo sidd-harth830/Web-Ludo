@@ -84,19 +84,13 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
     setInput(''); // Clear immediately for UX
 
     if (roomId !== 'local') {
-      const { error, data } = await insforge.database.from('chat_messages').insert([newMessage]).select();
+      const optimisticMsg = { ...newMessage, id: Date.now().toString(), created_at: new Date().toISOString() };
+      
+      setMessages(prev => [...prev, optimisticMsg as ChatMessage]);
+      insforge.realtime.publish(`chat_${roomId}`, 'NEW_MESSAGE', optimisticMsg).catch(console.error);
 
-      if (!error && data) {
-        const inserted = (data as any)?.[0] || newMessage;
-        setMessages(prev => {
-          if (prev.some(m => m.id === inserted.id)) return prev;
-          return [...prev, inserted as ChatMessage];
-        });
-        insforge.realtime.publish(`chat_${roomId}`, 'NEW_MESSAGE', inserted).catch(console.error);
-      } else {
-        // Revert if error
-        setInput(tempInput);
-      }
+      // Fire and forget
+      insforge.database.from('chat_messages').insert([newMessage]).then();
     } else {
       // Local Mode: just set it locally with a fake ID
       const localMsg = { ...newMessage, id: Date.now().toString(), created_at: new Date().toISOString() };

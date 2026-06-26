@@ -86,14 +86,15 @@ export const Room: React.FC = () => {
           if (p.user_id === storedUserId) {
             setPlayerColor(p.color as PlayerColor);
             setIsHost(p.is_host);
+            useGameStore.getState().setIsHost(p.is_host);
           }
         });
         setPlayerNames(pNames);
         setColorNames(cNames);
         
         const storeState = useGameStore.getState();
-        const humanCount = Object.values(storeState.bots).filter(b => !b).length;
-        if (players.length >= humanCount) {
+        const requiredHumans = storeState.playerCount - Object.values(storeState.bots).filter(Boolean).length;
+        if (players.length >= requiredHumans) {
           useGameStore.getState().syncState({ gameStatus: 'playing' });
         }
       }
@@ -111,10 +112,26 @@ export const Room: React.FC = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     let subscribedChannel: string | null = null;
+    let unsubStore: (() => void) | null = null;
     
-    const handleSync = (payload: any) => {
-      if (payload) {
-        useGameStore.getState().syncState(payload as Partial<GameState>);
+    const handleAuthoritativeSync = (payload: any) => {
+      const state = useGameStore.getState();
+      if (!state.isHost && payload) {
+        useGameStore.getState().forceSyncState(payload as GameState);
+      }
+    };
+
+    const handleIntentRoll = (payload: any) => {
+      const state = useGameStore.getState();
+      if (state.isHost && payload && payload.color === state.currentTurn) {
+        useGameStore.getState().rollDice();
+      }
+    };
+
+    const handleIntentMove = (payload: any) => {
+      const state = useGameStore.getState();
+      if (state.isHost && payload && payload.color === state.currentTurn) {
+        useGameStore.getState().moveToken(payload.tokenId, payload.color);
       }
     };
     
@@ -122,8 +139,8 @@ export const Room: React.FC = () => {
       const storeState = useGameStore.getState();
       const newPlayers = [...new Set([...storeState.activePlayers, message.member.presenceId])];
       useGameStore.getState().syncState({ activePlayers: newPlayers });
-      const humanCount = Object.values(storeState.bots).filter(b => !b).length;
-      if (newPlayers.length >= humanCount) {
+      const requiredHumans = storeState.playerCount - Object.values(storeState.bots).filter(Boolean).length;
+      if (newPlayers.length >= requiredHumans) {
         useGameStore.getState().syncState({ gameStatus: 'playing' });
       }
     };
@@ -132,14 +149,26 @@ export const Room: React.FC = () => {
       const storeState = useGameStore.getState();
       const newPlayers = storeState.activePlayers.filter(id => id !== message.member.presenceId);
       useGameStore.getState().syncState({ activePlayers: newPlayers });
-      const humanCount = Object.values(storeState.bots).filter(b => !b).length;
+      const requiredHumans = storeState.playerCount - Object.values(storeState.bots).filter(Boolean).length;
       
       if (newPlayers.length === 0) {
         insforge.database.from('rooms').update({ status: 'finished' }).eq('id', roomId).then();
-      } else if (storeState.gameStatus === 'playing' && newPlayers.length < humanCount) {
+      } else if (storeState.gameStatus === 'playing' && newPlayers.length < requiredHumans) {
         useGameStore.getState().syncState({ gameStatus: 'paused' });
       }
     };
+
+    // Phase 3: Fallback Polling
+    const checkPlayers = async () => {
+      if (useGameStore.getState().gameStatus !== 'waiting') return;
+      const { count } = await insforge.database.from('room_players').select('*', { count: 'exact', head: true }).eq('room_id', roomId);
+      const storeState = useGameStore.getState();
+      const requiredHumans = storeState.playerCount - Object.values(storeState.bots).filter(Boolean).length;
+      if (count && count >= requiredHumans) {
+        useGameStore.getState().syncState({ gameStatus: 'playing' });
+      }
+    };
+    const fallbackInterval = setInterval(checkPlayers, 3000);
 
     if (roomId !== 'local') {
       const setupSocket = async () => {
@@ -152,8 +181,8 @@ export const Room: React.FC = () => {
             const activeKeys = res.presence.members.map(m => m.presenceId);
             useGameStore.getState().syncState({ activePlayers: activeKeys });
             const storeState = useGameStore.getState();
-            const humanCount = Object.values(storeState.bots).filter(b => !b).length;
-            if (activeKeys.length >= humanCount) {
+            const requiredHumans = storeState.playerCount - Object.values(storeState.bots).filter(Boolean).length;
+            if (activeKeys.length >= requiredHumans) {
               useGameStore.getState().syncState({ gameStatus: 'playing' });
             }
           }
@@ -162,11 +191,21 @@ export const Room: React.FC = () => {
         }
       };
       
-      insforge.realtime.on('SYNC_STATE', handleSync);
+      insforge.realtime.on('AUTHORITATIVE_SYNC', handleAuthoritativeSync);
+      insforge.realtime.on('INTENT_ROLL', handleIntentRoll);
+      insforge.realtime.on('INTENT_MOVE', handleIntentMove);
       insforge.realtime.on('presence:join', handlePresenceJoin);
       insforge.realtime.on('presence:leave', handlePresenceLeave);
       
       setupSocket();
+
+      // Host duties: Broadcast state changes
+      unsubStore = useGameStore.subscribe((state) => {
+        if (state.isHost && state.roomId && state.roomId !== 'local') {
+          // Fire and forget
+          insforge.realtime.publish(`game_${state.roomId}`, 'AUTHORITATIVE_SYNC', state).catch(console.error);
+        }
+      });
     }
 
     // Setup Bot Worker
@@ -184,10 +223,14 @@ export const Room: React.FC = () => {
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      clearInterval(fallbackInterval);
       if (subscribedChannel) insforge.realtime.unsubscribe(subscribedChannel);
-      insforge.realtime.off('SYNC_STATE', handleSync);
+      insforge.realtime.off('AUTHORITATIVE_SYNC', handleAuthoritativeSync);
+      insforge.realtime.off('INTENT_ROLL', handleIntentRoll);
+      insforge.realtime.off('INTENT_MOVE', handleIntentMove);
       insforge.realtime.off('presence:join', handlePresenceJoin);
       insforge.realtime.off('presence:leave', handlePresenceLeave);
+      if (unsubStore) unsubStore();
       botWorkerRef.current?.terminate();
     };
   }, [roomId, navigate, setRoom, syncState]);

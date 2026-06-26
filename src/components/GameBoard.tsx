@@ -3,6 +3,7 @@ import { useGameStore } from '../store/gameStore';
 import type { PlayerColor } from '../store/gameStore';
 import { TokenComponent } from './Token';
 import { Dice3, Star, User } from 'lucide-react';
+import { insforge } from '../lib/insforge';
 
 const generateTrackCoords = () => {
   const coords: { x: number; y: number }[] = [];
@@ -50,8 +51,26 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
 
   const handleRoll = () => {
     setIsRolling(true);
-    rollDice();
+    const state = useGameStore.getState();
+    if (state.isHost) {
+      rollDice();
+    } else {
+      if (state.roomId && state.roomId !== 'local') {
+        insforge.realtime.publish(`game_${state.roomId}`, 'INTENT_ROLL', { color: playerColor }).catch(console.error);
+      }
+    }
     setTimeout(() => setIsRolling(false), 1500); // 1.5s debounce rate limit
+  };
+
+  const handleMove = (tokenId: number, color: PlayerColor) => {
+    const state = useGameStore.getState();
+    if (state.isHost) {
+      moveToken(tokenId, color);
+    } else {
+      if (state.roomId && state.roomId !== 'local') {
+        insforge.realtime.publish(`game_${state.roomId}`, 'INTENT_MOVE', { tokenId, color }).catch(console.error);
+      }
+    }
   };
 
   return (
@@ -80,7 +99,7 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
 
         <button 
           onClick={handleRoll}
-          disabled={currentTurn !== playerColor || diceRoll !== null || isRolling}
+          disabled={currentTurn !== playerColor || diceRoll !== null || isRolling || useGameStore.getState().gameStatus !== 'playing'}
           className="bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-md font-semibold transition-colors flex items-center gap-2 text-sm shadow-sm"
         >
           <Dice3 size={16} />
@@ -106,10 +125,10 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
             }}
           >
           {/* Base Areas */}
-          <BaseArea color="emerald" x={0} y={0} tokens={tokens} playerColor={playerColor} onMove={moveToken} />
-          <BaseArea color="amber" x={9} y={0} tokens={tokens} playerColor={playerColor} onMove={moveToken} />
-          <BaseArea color="red" x={0} y={9} tokens={tokens} playerColor={playerColor} onMove={moveToken} />
-          <BaseArea color="blue" x={9} y={9} tokens={tokens} playerColor={playerColor} onMove={moveToken} />
+          <BaseArea color="emerald" x={0} y={0} tokens={tokens} playerColor={playerColor} onMove={handleMove} />
+          <BaseArea color="amber" x={9} y={0} tokens={tokens} playerColor={playerColor} onMove={handleMove} />
+          <BaseArea color="red" x={0} y={9} tokens={tokens} playerColor={playerColor} onMove={handleMove} />
+          <BaseArea color="blue" x={9} y={9} tokens={tokens} playerColor={playerColor} onMove={handleMove} />
 
           {/* Track Squares */}
           {TRACK_COORDS.map((coord, idx) => {
@@ -136,7 +155,7 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
                       <TokenComponent 
                         color={t.color} 
                         className={ts.length > 1 ? "w-4 h-4 sm:w-5 sm:h-5 shadow-sm ring-1 ring-white/50" : "w-4 h-4 sm:w-6 sm:h-6"} 
-                        onClick={() => currentTurn === playerColor && t.color === playerColor && moveToken(t.id, t.color)}
+                        onClick={() => currentTurn === playerColor && t.color === playerColor && useGameStore.getState().gameStatus === 'playing' && handleMove(t.id, t.color)}
                         highlight={currentTurn === playerColor && t.color === playerColor}
                       />
                     </div>
@@ -169,7 +188,7 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
                         <TokenComponent 
                           color={t.color} 
                           className="w-4 h-4 sm:w-6 sm:h-6" 
-                          onClick={() => currentTurn === playerColor && t.color === playerColor && moveToken(t.id, t.color)}
+                          onClick={() => currentTurn === playerColor && t.color === playerColor && useGameStore.getState().gameStatus === 'playing' && handleMove(t.id, t.color)}
                           highlight={currentTurn === playerColor && t.color === playerColor}
                         />
                       </div>
@@ -216,7 +235,7 @@ const BaseArea: React.FC<{ color: PlayerColor, x: number, y: number, tokens: any
                 <div key={t.id} className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full border-4 border-${color}-500/30 flex items-center justify-center bg-zinc-50 dark:bg-zinc-800`}>
                   <TokenComponent 
                     color={color} 
-                    onClick={() => currentTurn === playerColor && color === playerColor && onMove(t.id, color)} 
+                    onClick={() => currentTurn === playerColor && color === playerColor && useGameStore.getState().gameStatus === 'playing' && onMove(t.id, color)} 
                     highlight={currentTurn === playerColor && color === playerColor && diceRoll === 6}
                     className="w-full h-full cursor-pointer"
                   />

@@ -25,6 +25,7 @@ export interface GameState {
   gameStatus: 'waiting' | 'playing' | 'paused';
   activePlayers: string[];
   roomId: string | null;
+  isHost: boolean;
 }
 
 interface GameStore extends GameState {
@@ -35,6 +36,8 @@ interface GameStore extends GameState {
   setRoom: (roomId: string) => void;
   initGameConfig: (playerCount: number, bots: Record<PlayerColor, boolean>) => void;
   resetGame: () => void;
+  setIsHost: (isHost: boolean) => void;
+  forceSyncState: (authoritativeState: GameState) => void;
 }
 
 const COLORS: PlayerColor[] = ['emerald', 'blue', 'red', 'amber'];
@@ -66,6 +69,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameStatus: 'waiting',
   activePlayers: [],
   roomId: null,
+  isHost: false,
 
   resetGame: () => set({
     tokens: getInitialTokens(),
@@ -77,7 +81,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     winner: null,
     gameStatus: 'waiting',
     activePlayers: [],
-    roomId: null
+    roomId: null,
+    isHost: false
   }),
 
   setRoom: (roomId) => set({ roomId }),
@@ -88,6 +93,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   syncState: (newState) => set((state) => ({ ...state, ...newState })),
+
+  setIsHost: (isHost) => set({ isHost }),
+  
+  forceSyncState: (authoritativeState) => set({ ...authoritativeState }),
 
   rollDice: () => {
     const state = get();
@@ -115,7 +124,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         currentTurn: nextTurn,
       };
       set(newState);
-      if (state.roomId) broadcastState(state.roomId, newState);
       return;
     }
 
@@ -249,7 +257,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     };
 
     set(newState);
-    if (state.roomId) broadcastState(state.roomId, newState);
   },
 
   passTurn: () => {
@@ -268,7 +275,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     };
     
     set(newState);
-    if (state.roomId) broadcastState(state.roomId, newState);
   }
 }));
 
@@ -285,10 +291,4 @@ const getValidTokens = (tokens: Token[], color: PlayerColor, roll: number): Toke
   });
 };
 
-const broadcastState = (roomId: string, stateUpdate: Partial<GameState>) => {
-  if (roomId === 'local') return;
-  insforge.realtime.publish(`game_${roomId}`, 'SYNC_STATE', stateUpdate).catch(console.error);
-  const fullState = useGameStore.getState();
-  // Persist to database for history/reconnects
-  insforge.database.from('rooms').update({ state: fullState }).eq('id', roomId).then();
-};
+
