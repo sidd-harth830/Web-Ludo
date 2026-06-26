@@ -259,4 +259,7 @@ const checkValidMoves = (tokens: Token[], color: PlayerColor, roll: number): boo
 
 const broadcastState = (roomId: string, stateUpdate: Partial<GameState>) => {
   insforge.realtime.publish(`room:${roomId}`, 'STATE_UPDATE', stateUpdate);
+  const fullState = useGameStore.getState();
+  // Persist to database so `postgres_changes` pushes it to other clients
+  insforge.database.from('rooms').update({ state: fullState }).eq('id', roomId).then();
 };

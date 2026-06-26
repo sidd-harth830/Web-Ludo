@@ -30,23 +30,22 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
 
     fetchMessages();
 
-    const setupRealtime = async () => {
-      await insforge.realtime.connect();
-      await insforge.realtime.subscribe(`chat:${roomId}`);
-      insforge.realtime.on('NEW_MESSAGE', (payload) => {
-        if (payload) {
-          const msg = payload as ChatMessage;
-          setMessages((prev) => {
-            if (prev.some(m => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
+    const channel = insforge.channel(`chat_${roomId}`)
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` }, 
+        (payload) => {
+          if (payload.new) {
+            const msg = payload.new as ChatMessage;
+            setMessages((prev) => {
+              if (prev.some(m => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+          }
         }
-      });
-    };
-    setupRealtime();
+      ).subscribe();
 
     return () => {
-      insforge.realtime.unsubscribe(`chat:${roomId}`);
+      insforge.removeChannel(channel);
     };
   }, [roomId]);
 

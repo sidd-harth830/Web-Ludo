@@ -81,16 +81,15 @@ export const Room: React.FC = () => {
     initRoom();
 
     // Subscribe to state updates via realtime
-    const setupRealtime = async () => {
-      await insforge.realtime.connect();
-      await insforge.realtime.subscribe(`room:${roomId}`);
-      insforge.realtime.on('STATE_UPDATE', (payload) => {
-        if (payload) {
-          syncState(payload as Partial<GameState>);
+    const gameChannel = insforge.channel(`game_${roomId}`)
+      .on('postgres_changes', 
+        { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, 
+        (payload) => {
+          if (payload.new && payload.new.state) {
+            useGameStore.getState().syncState(payload.new.state as Partial<GameState>);
+          }
         }
-      });
-    };
-    setupRealtime();
+      ).subscribe();
 
     // Setup Bot Worker
     botWorkerRef.current = new Worker(new URL('../workers/botWorker.ts', import.meta.url), { type: 'module' });
@@ -106,7 +105,7 @@ export const Room: React.FC = () => {
     };
 
     return () => {
-      insforge.realtime.unsubscribe(`room:${roomId}`);
+      insforge.removeChannel(gameChannel);
       botWorkerRef.current?.terminate();
     };
   }, [roomId, navigate, setRoom, syncState]);
