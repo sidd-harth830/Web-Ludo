@@ -2,7 +2,7 @@ import React from 'react';
 import { useGameStore } from '../store/gameStore';
 import type { PlayerColor } from '../store/gameStore';
 import { TokenComponent } from './Token';
-import { Dice3 } from 'lucide-react';
+import { Dice3, Star } from 'lucide-react';
 
 // Pre-calculated coordinates for a 15x15 grid
 const generateTrackCoords = () => {
@@ -12,7 +12,7 @@ const generateTrackCoords = () => {
   for (let i = 1; i <= 5; i++) coords.push({ x: 6, y: i });
   // Left 6
   for (let i = 5; i >= 0; i--) coords.push({ x: i, y: 6 });
-  // Down 2 (Red start is at 13 in our model, wait, let's just map carefully)
+  // Down 2
   coords.push({ x: 0, y: 7 });
   coords.push({ x: 0, y: 8 });
   // Right 6
@@ -39,7 +39,7 @@ const generateTrackCoords = () => {
   return coords;
 };
 
-const TRACK_COORDS = generateTrackCoords(); // Should be 52
+const TRACK_COORDS = generateTrackCoords();
 
 const HOME_PATHS: Record<PlayerColor, { x: number; y: number }[]> = {
   emerald: Array.from({ length: 5 }, (_, i) => ({ x: 7, y: i + 1 })), // Top down
@@ -50,55 +50,51 @@ const HOME_PATHS: Record<PlayerColor, { x: number; y: number }[]> = {
 
 const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
 
-
-
 export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor }) => {
   const { tokens, currentTurn, diceRoll, rollDice, moveToken, consecutiveSixes } = useGameStore();
 
   return (
-    <div className="flex flex-col items-center justify-center gap-8 p-4">
+    <div className="flex flex-col items-center justify-center gap-4 w-full h-full max-h-full">
       
       {/* Game Header */}
-      <div className="glass-panel p-4 flex gap-8 items-center">
+      <div className="glass-panel p-3 flex gap-4 items-center justify-center w-full max-w-lg z-10 shrink-0">
         <div className="flex flex-col items-center">
-          <span className="text-sm text-slate-400">Current Turn</span>
+          <span className="text-xs sm:text-sm opacity-70">Current Turn</span>
           <div className="flex items-center gap-2 mt-1">
-            <div className={`w-4 h-4 rounded-full bg-${currentTurn}-500 shadow-[0_0_10px_rgba(255,255,255,0.5)]`} />
-            <span className="font-bold capitalize">{currentTurn}</span>
+            <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-${currentTurn}-500 shadow-[0_0_10px_rgba(255,255,255,0.5)]`} />
+            <span className="font-bold capitalize text-sm sm:text-base">{currentTurn}</span>
           </div>
         </div>
 
-        <div className="h-10 w-px bg-white/20" />
+        <div className="h-8 w-px bg-[var(--panel-border)]" />
 
-        <div className="flex flex-col items-center">
-          <span className="text-sm text-slate-400">Dice Roll</span>
-          <div className="font-bold text-2xl w-8 h-8 flex items-center justify-center bg-white/10 rounded-md">
+        <div className="flex flex-col items-center relative">
+          <span className="text-xs sm:text-sm opacity-70">Dice Roll</span>
+          <div className="font-bold text-lg sm:text-xl w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center bg-[var(--panel-border)] rounded-md text-[var(--text-primary)]">
             {diceRoll || '-'}
           </div>
           {consecutiveSixes > 0 && (
-            <span className="text-xs text-red-400 absolute -bottom-4">Consecutive 6s: {consecutiveSixes}</span>
+            <span className="text-[10px] text-red-500 absolute -bottom-4 whitespace-nowrap">Consecutive 6s: {consecutiveSixes}</span>
           )}
         </div>
 
         <button 
           onClick={rollDice}
           disabled={currentTurn !== playerColor || diceRoll !== null}
-          className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2"
+          className="bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 sm:px-4 sm:py-2 rounded-lg font-semibold transition-all flex items-center gap-2 text-xs sm:text-sm ml-2"
         >
-          <Dice3 size={20} />
-          Roll Dice
+          <Dice3 size={16} />
+          Roll
         </button>
       </div>
 
       {/* Board */}
-      <div className="relative bg-white/5 border border-white/20 p-2 rounded-2xl shadow-2xl backdrop-blur-sm">
+      <div className="relative glass-panel p-2 shadow-2xl backdrop-blur-sm w-full max-w-full aspect-square flex-1 min-h-0">
         <div 
-          className="grid gap-[2px] bg-slate-900/50 p-[2px] rounded-xl"
+          className="grid gap-0 bg-[var(--panel-border)] p-1 rounded-xl w-full h-full"
           style={{ 
             gridTemplateColumns: 'repeat(15, minmax(0, 1fr))',
-            gridTemplateRows: 'repeat(15, minmax(0, 1fr))',
-            width: '600px',
-            height: '600px'
+            gridTemplateRows: 'repeat(15, minmax(0, 1fr))'
           }}
         >
           {/* Base Areas */}
@@ -115,16 +111,16 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor 
             return (
               <div 
                 key={`track-${idx}`} 
-                className={`relative flex items-center justify-center border border-white/10 ${isSafe ? 'bg-white/10' : 'bg-transparent'}`}
+                className={`relative flex items-center justify-center border-[0.5px] border-black/5 dark:border-white/5 bg-[var(--bg-primary)]`}
                 style={{ gridColumn: coord.x + 1, gridRow: coord.y + 1 }}
               >
-                {isSafe && <div className="absolute inset-2 border border-white/20 rotate-45" />}
-                <div className="flex flex-wrap items-center justify-center gap-1 w-full h-full p-1 z-10">
+                {isSafe && <Star className="absolute w-1/2 h-1/2 text-[var(--panel-border)] opacity-50" fill="currentColor" />}
+                <div className="flex flex-wrap items-center justify-center gap-[2px] w-full h-full p-[2px] z-10">
                   {ts.map(t => (
                     <TokenComponent 
                       key={t.id} 
                       color={t.color} 
-                      className="w-4 h-4" 
+                      className={ts.length > 1 ? "w-3 h-3 sm:w-4 sm:h-4" : "w-4 h-4 sm:w-6 sm:h-6"} 
                       onClick={() => currentTurn === playerColor && t.color === playerColor && moveToken(t.id, t.color)}
                       highlight={currentTurn === playerColor && t.color === playerColor}
                     />
@@ -141,14 +137,14 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor 
               return (
                 <div 
                   key={`home-${color}-${idx}`} 
-                  className={`bg-${color}-500/20 border border-${color}-500/30 flex items-center justify-center`}
+                  className={`border-[0.5px] border-black/10 dark:border-white/10 flex items-center justify-center bg-${color}-500`}
                   style={{ gridColumn: coord.x + 1, gridRow: coord.y + 1 }}
                 >
                   {ts.map(t => (
                     <TokenComponent 
                       key={t.id} 
                       color={t.color} 
-                      className="w-5 h-5" 
+                      className="w-4 h-4 sm:w-6 sm:h-6" 
                       onClick={() => currentTurn === playerColor && t.color === playerColor && moveToken(t.id, t.color)}
                       highlight={currentTurn === playerColor && t.color === playerColor}
                     />
@@ -159,11 +155,16 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor 
           ))}
 
           {/* Center Goal */}
-          <div className="col-start-7 col-end-10 row-start-7 row-end-10 relative">
-             <div className="absolute inset-0 border-[24px] border-transparent border-t-emerald-500/50 border-r-amber-500/50 border-b-blue-500/50 border-l-red-500/50" />
+          <div className="col-start-7 col-end-10 row-start-7 row-end-10 relative overflow-hidden bg-[var(--bg-primary)]">
+             <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full preserve-3d" preserveAspectRatio="none">
+                <polygon points="0,0 100,0 50,50" fill="#10b981" /> {/* top emerald */}
+                <polygon points="100,0 100,100 50,50" fill="#f59e0b" /> {/* right amber */}
+                <polygon points="0,100 100,100 50,50" fill="#3b82f6" /> {/* bottom blue */}
+                <polygon points="0,0 0,100 50,50" fill="#ef4444" /> {/* left red */}
+             </svg>
              <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-1 p-2">
                 {tokens.filter(t => t.state === 'goal').map(t => (
-                  <TokenComponent key={`${t.color}-${t.id}`} color={t.color} className="w-4 h-4 opacity-50" />
+                  <TokenComponent key={`${t.color}-${t.id}`} color={t.color} className="w-3 h-3 sm:w-4 sm:h-4 opacity-80" />
                 ))}
              </div>
           </div>
@@ -179,21 +180,26 @@ const BaseArea: React.FC<{ color: PlayerColor, x: number, y: number, tokens: any
   
   return (
     <div 
-      className={`border-4 border-${color}-500/50 bg-${color}-500/10 p-4 flex flex-wrap gap-4 items-center justify-center`}
+      className={`bg-${color}-500 relative flex items-center justify-center border-[0.5px] border-black/20`}
       style={{ gridColumn: `${x + 1} / span 6`, gridRow: `${y + 1} / span 6` }}
     >
-      {baseTokens.map(t => (
-        <div key={t.id} className={`w-12 h-12 rounded-full border-4 border-white/10 flex items-center justify-center bg-black/20`}>
-          <TokenComponent 
-            color={color} 
-            onClick={() => currentTurn === playerColor && color === playerColor && onMove(t.id, color)} 
-            highlight={currentTurn === playerColor && color === playerColor && diceRoll === 6}
-          />
+        <div className={`bg-[var(--bg-primary)] w-[65%] h-[65%] rounded-lg p-2 sm:p-4 shadow-inner flex items-center justify-center`}>
+           <div className="grid grid-cols-2 grid-rows-2 gap-4 place-items-center w-full h-full">
+              {baseTokens.map(t => (
+                <div key={t.id} className={`w-6 h-6 sm:w-10 sm:h-10 rounded-full border-4 border-${color}-500 flex items-center justify-center bg-[var(--bg-primary)] shadow-sm`}>
+                  <TokenComponent 
+                    color={color} 
+                    onClick={() => currentTurn === playerColor && color === playerColor && onMove(t.id, color)} 
+                    highlight={currentTurn === playerColor && color === playerColor && diceRoll === 6}
+                    className="w-full h-full cursor-pointer"
+                  />
+                </div>
+              ))}
+              {Array.from({ length: 4 - baseTokens.length }).map((_, i) => (
+                <div key={`empty-${i}`} className={`w-6 h-6 sm:w-10 sm:h-10 rounded-full border-4 border-[var(--panel-border)] flex items-center justify-center bg-[var(--panel-bg)] opacity-50`} />
+              ))}
+           </div>
         </div>
-      ))}
-      {Array.from({ length: 4 - baseTokens.length }).map((_, i) => (
-        <div key={`empty-${i}`} className={`w-12 h-12 rounded-full border-4 border-white/5 flex items-center justify-center bg-black/20`} />
-      ))}
     </div>
   );
 };

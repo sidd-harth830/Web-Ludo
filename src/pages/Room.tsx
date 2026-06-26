@@ -110,36 +110,36 @@ export const Room: React.FC = () => {
     }
   }, [currentTurn, diceRoll, isHost, roomId, tokens]);
 
-  if (!playerColor || !userId) return <div className="p-8 flex items-center justify-center min-h-screen text-slate-500">Loading Room...</div>;
+  if (!playerColor || !userId) return <div className="p-8 flex items-center justify-center h-screen bg-[var(--bg-primary)]">Loading Room...</div>;
 
   const state = useGameStore.getState();
   const isBotTurn = state.bots[currentTurn];
 
   return (
-    <div className="flex-1 flex flex-col lg:flex-row p-4 gap-6 max-w-7xl mx-auto w-full relative h-full">
+    <div className="h-screen w-full overflow-hidden flex flex-col md:flex-row bg-[var(--bg-primary)]">
       
       {/* Left panel */}
-      <div className="flex-none lg:w-72 flex flex-col gap-4">
-        <div className="glass-panel p-5 flex justify-between items-center lg:flex-col lg:items-start lg:gap-4">
+      <div className="w-full md:w-64 flex-shrink-0 flex flex-col gap-4 p-4 overflow-y-auto border-b md:border-b-0 md:border-r border-[var(--panel-border)]">
+        <div className="glass-panel p-5 flex justify-between items-center md:flex-col md:items-start md:gap-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-              Room: <span className="font-mono text-emerald-500 dark:text-emerald-400">{roomId?.substring(0, 8)}</span>
+            <h2 className="text-xl font-bold">
+              Room: <span className="font-mono text-[var(--highlight-secondary)]">{roomId?.substring(0, 8)}</span>
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Playing as <span className={`font-bold text-${playerColor}-500 dark:text-${playerColor}-400 capitalize`}>{playerColor}</span>
+            <p className="text-sm mt-1 opacity-80">
+              Playing as <span className={`font-bold text-${playerColor}-500 capitalize`}>{playerColor}</span>
             </p>
           </div>
           <button 
             onClick={() => navigate('/')}
-            className="bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 hover:bg-red-500/20 dark:hover:bg-red-500/40 px-4 py-2 rounded-lg transition-colors text-sm font-semibold border border-red-500/30"
+            className="bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 px-4 py-2 rounded-lg transition-colors text-sm font-semibold border border-red-500/30 w-full md:w-auto text-center"
           >
             Leave
           </button>
         </div>
 
-        <div className="glass-panel p-5 hidden lg:block">
-           <h3 className="font-bold mb-2 text-slate-700 dark:text-slate-300 text-sm uppercase tracking-wider">Current Turn</h3>
-           <div className={`text-2xl font-bold capitalize text-${currentTurn}-500 dark:text-${currentTurn}-400 flex items-center gap-2`}>
+        <div className="glass-panel p-5 hidden md:block">
+           <h3 className="font-bold mb-2 text-sm uppercase tracking-wider opacity-80">Current Turn</h3>
+           <div className={`text-2xl font-bold capitalize text-${currentTurn}-500 flex items-center gap-2`}>
              {currentTurn} 
              {isBotTurn && <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full uppercase">Bot</span>}
            </div>
@@ -147,28 +147,30 @@ export const Room: React.FC = () => {
       </div>
 
       {/* Center Board */}
-      <div className="flex-1 flex items-center justify-center lg:min-h-[600px]">
-        <div className="aspect-square w-full max-w-[500px]">
+      <div className="flex-grow flex justify-center items-center p-4 min-h-0 overflow-hidden">
+        <div className="aspect-square max-h-full max-w-full flex justify-center items-center w-full h-full">
           <GameBoard playerColor={playerColor} />
         </div>
       </div>
 
       {/* Right Chat (Desktop) / Modal (Mobile) */}
       <div className={`
-        fixed inset-0 z-50 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm lg:static lg:bg-transparent lg:backdrop-blur-none lg:w-80 lg:z-auto transition-all duration-300
-        ${showChat ? 'opacity-100 pointer-events-auto flex items-end lg:block' : 'opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto lg:block'}
+        fixed inset-0 z-50 bg-black/60 backdrop-blur-sm md:static md:bg-transparent md:backdrop-blur-none md:w-80 md:flex-shrink-0 md:h-full md:border-l border-[var(--panel-border)] md:z-auto transition-all duration-300
+        ${showChat ? 'opacity-100 pointer-events-auto flex items-end md:block' : 'opacity-0 pointer-events-none md:opacity-100 md:pointer-events-auto md:block'}
       `}>
-        <div className={`w-full h-[70vh] lg:h-full lg:min-h-[600px] transition-transform duration-300 ${showChat ? 'translate-y-0' : 'translate-y-full lg:translate-y-0'}`}>
-           {roomId && userId && <ChatPanel roomId={roomId} userId={userId} onClose={() => setShowChat(false)} />}
+        <div className={`w-full h-[70vh] md:h-full flex flex-col transition-transform duration-300 bg-[var(--bg-primary)] md:bg-transparent rounded-t-2xl md:rounded-none ${showChat ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}`}>
+           <div className="flex-1 w-full h-full overflow-hidden relative">
+             {roomId && userId && <ChatPanel roomId={roomId} userId={userId} onClose={() => setShowChat(false)} />}
+           </div>
         </div>
       </div>
 
       {/* Mobile Chat Toggle Button */}
       <button 
         onClick={() => setShowChat(true)}
-        className="lg:hidden fixed bottom-6 right-6 p-4 rounded-full bg-blue-500 text-white shadow-lg shadow-blue-500/30 z-40 hover:scale-105 transition-transform"
+        className="md:hidden fixed bottom-6 right-6 p-4 rounded-full bg-[var(--highlight-secondary)] text-white shadow-lg z-40 hover:scale-105 transition-transform"
       >
-        <MessageSquare size={24} />
+        <MessageSquare size={24} className="text-[var(--bg-primary)]" />
       </button>
 
     </div>
