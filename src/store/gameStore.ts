@@ -257,7 +257,6 @@ const checkValidMoves = (tokens: Token[], color: PlayerColor, roll: number): boo
   return false;
 };
 
-// Extracted broadcast logic
 const broadcastState = (roomId: string, stateUpdate: Partial<GameState>) => {
   insforge.realtime.publish(`room:${roomId}`, 'STATE_UPDATE', stateUpdate);
 };

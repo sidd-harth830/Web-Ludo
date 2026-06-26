@@ -16,18 +16,41 @@ export const Home: React.FC = () => {
   const [bots, setBots] = useState<Record<PlayerColor, boolean>>({
     emerald: false, blue: false, red: false, amber: false
   });
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
   
   const navigate = useNavigate();
 
   useEffect(() => {
-    const queryCode = searchParams.get('code');
-    if (queryCode) {
-      setCode(queryCode);
-      setActiveTab('join');
-    }
-    
-    const savedName = localStorage.getItem('ludo_username');
-    if (savedName) setUsername(savedName);
+    const initInvite = async () => {
+      const savedName = localStorage.getItem('ludo_username');
+      if (savedName) setUsername(savedName);
+
+      const encodedCode = searchParams.get('j');
+      const queryCode = searchParams.get('code');
+      
+      let targetCode = '';
+      if (encodedCode) {
+        try {
+          targetCode = atob(encodedCode);
+        } catch (e) {
+          // ignore invalid base64
+        }
+      } else if (queryCode) {
+        targetCode = queryCode;
+      }
+
+      if (targetCode) {
+        setCode(targetCode);
+        setActiveTab('join');
+        
+        if (savedName) {
+          await performJoinOrCreate(targetCode, savedName, 'join');
+        } else {
+          setInviteModalOpen(true);
+        }
+      }
+    };
+    initInvite();
   }, [searchParams]);
 
   const toggleBot = (color: PlayerColor) => {
@@ -43,32 +66,27 @@ export const Home: React.FC = () => {
     return `${result.slice(0,4)}-${result.slice(4,8)}-${result.slice(8,12)}`;
   };
 
-  const handleJoinOrCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username.trim()) return alert('Please enter a username');
-    if (activeTab === 'join' && !code.trim()) return alert('Please enter a room code');
-    
+  const performJoinOrCreate = async (roomCodeArg: string, usernameArg: string, tab: 'join' | 'host') => {
     setLoading(true);
-    let roomCode = activeTab === 'join' ? code.trim().toUpperCase() : generateComplexCode();
+    let roomCode = tab === 'join' ? roomCodeArg.trim().toUpperCase() : generateComplexCode();
     
     try {
-      // Ensure user exists
       let userId: string;
-      const { data: users } = await insforge.database.from('users').select('id').eq('username', username).maybeSingle();
+      const { data: users } = await insforge.database.from('users').select('id').eq('username', usernameArg).maybeSingle();
       
       if (users) {
         userId = (users as any).id;
       } else {
-        const { data: newUser, error: userError } = await insforge.database.from('users').insert([{ username }]).select('id').single();
+        const { data: newUser, error: userError } = await insforge.database.from('users').insert([{ username: usernameArg }]).select('id').single();
         if (userError) throw userError;
         userId = (newUser as any).id;
       }
 
       localStorage.setItem('ludo_user_id', userId);
-      localStorage.setItem('ludo_username', username);
+      localStorage.setItem('ludo_username', usernameArg);
 
       let roomId: string;
-      if (activeTab === 'host') {
+      if (tab === 'host') {
         const gameState = { playerCount, bots };
         const expiresAt = new Date(Date.now() + 30 * 60000).toISOString();
 
@@ -106,12 +124,58 @@ export const Home: React.FC = () => {
       navigate(`/room/${roomId}`);
     } catch (err: any) {
       alert(err.message || 'Error joining room');
-    } finally {
       setLoading(false);
     }
   };
 
+  const handleJoinOrCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim()) return alert('Please enter a username');
+    if (activeTab === 'join' && !code.trim()) return alert('Please enter a room code');
+    await performJoinOrCreate(code, username, activeTab);
+  };
+
   const activeColors = COLORS.slice(0, playerCount);
+
+  if (inviteModalOpen) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-4 bg-zinc-900/50 backdrop-blur-sm fixed inset-0 z-50">
+        <div className="glass-panel w-full max-w-sm bg-white dark:bg-zinc-900 shadow-xl border border-zinc-200 dark:border-zinc-800 p-6 rounded-xl animate-in zoom-in-95 duration-200">
+          <h2 className="text-2xl font-bold text-center text-zinc-900 dark:text-zinc-50 mb-2">You've been invited!</h2>
+          <p className="text-center text-zinc-500 dark:text-zinc-400 text-sm mb-6">Enter a username to join the game.</p>
+          
+          <form onSubmit={(e) => { e.preventDefault(); if (username.trim()) performJoinOrCreate(code, username, 'join'); }} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase tracking-wide">Username</label>
+              <input 
+                type="text" 
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 transition-all"
+                placeholder="Enter your name"
+                autoFocus
+              />
+            </div>
+            <button 
+              type="submit" 
+              disabled={loading || !username.trim()}
+              className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-50 dark:hover:bg-zinc-200 text-zinc-50 dark:text-zinc-900 disabled:opacity-50 px-4 py-2 rounded-md text-sm font-semibold transition-colors shadow-sm mt-2"
+            >
+              {loading ? 'Joining...' : 'Join Game'}
+            </button>
+            <button 
+              type="button"
+              onClick={() => { setInviteModalOpen(false); navigate('/'); }}
+              className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 mt-2"
+            >
+              Cancel
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4">

@@ -33,15 +33,13 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
     const setupRealtime = async () => {
       await insforge.realtime.connect();
       await insforge.realtime.subscribe(`chat:${roomId}`);
-      insforge.realtime.on<{ message: ChatMessage }>('NEW_MESSAGE', (payload) => {
-        if (payload && payload.message) {
-          const msg = (payload as any).payload?.message || payload.message;
-          if (msg) {
-            setMessages((prev) => {
-              if (prev.some(m => m.id === msg.id)) return prev;
-              return [...prev, msg as ChatMessage];
-            });
-          }
+      insforge.realtime.on('NEW_MESSAGE', (payload) => {
+        if (payload) {
+          const msg = payload as ChatMessage;
+          setMessages((prev) => {
+            if (prev.some(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
         }
       });
     };
@@ -86,7 +84,7 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
         if (prev.some(m => m.id === inserted.id)) return prev;
         return [...prev, inserted as ChatMessage];
       });
-      insforge.realtime.publish(`chat:${roomId}`, 'NEW_MESSAGE', { message: inserted });
+      insforge.realtime.publish(`chat:${roomId}`, 'NEW_MESSAGE', inserted);
     } else {
       // Revert if error
       setInput(tempInput);

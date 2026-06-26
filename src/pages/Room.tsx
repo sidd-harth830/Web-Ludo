@@ -84,9 +84,9 @@ export const Room: React.FC = () => {
     const setupRealtime = async () => {
       await insforge.realtime.connect();
       await insforge.realtime.subscribe(`room:${roomId}`);
-      insforge.realtime.on<{ payload: Partial<GameState> }>('STATE_UPDATE', (payload) => {
-        if (payload?.payload) {
-          syncState(payload.payload);
+      insforge.realtime.on('STATE_UPDATE', (payload) => {
+        if (payload) {
+          syncState(payload as Partial<GameState>);
         }
       });
     };
@@ -173,7 +173,7 @@ export const Room: React.FC = () => {
 
   const handleShare = async () => {
     if (!roomCode) return;
-    await navigator.clipboard.writeText(`${window.location.origin}/?code=${roomCode}`);
+    await navigator.clipboard.writeText(`${window.location.origin}/?j=${btoa(roomCode)}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -215,9 +215,10 @@ export const Room: React.FC = () => {
         <div className="glass-panel p-5 flex flex-col gap-4 md:flex-col md:items-start md:gap-4">
           <div className="w-full flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                Room: <span className="font-mono text-[var(--highlight-secondary)]">{roomCode || roomId?.substring(0, 8)}</span>
-              </h2>
+              <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Room Code</span>
+              <div className="font-mono text-lg tracking-wider break-all bg-white/5 px-2 py-1 rounded mt-0.5 border border-zinc-200 dark:border-zinc-800">
+                {roomCode || roomId?.substring(0, 8)}
+              </div>
             </div>
             <div className="flex gap-2">
               <button 
