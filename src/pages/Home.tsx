@@ -70,6 +70,10 @@ export const Home: React.FC = () => {
     setLoading(true);
     let roomCode = tab === 'join' ? roomCodeArg.trim().toUpperCase() : generateComplexCode();
     
+    import('../store/gameStore').then(({ useGameStore }) => {
+      useGameStore.getState().resetGame();
+    });
+
     try {
       let userId: string;
       const { data: users } = await insforge.database.from('users').select('id').eq('username', usernameArg).maybeSingle();
@@ -87,18 +91,28 @@ export const Home: React.FC = () => {
 
       let roomId: string;
       if (tab === 'host') {
-        const gameState = { playerCount, bots };
-        const expiresAt = new Date(Date.now() + 30 * 60000).toISOString();
+        const activeColors = COLORS.slice(0, playerCount);
+        const isAllBots = activeColors.slice(1).every(c => bots[c]);
 
-        const { data: newRoom, error: roomError } = await insforge.database
-          .from('rooms')
-          .insert([{ code: roomCode, state: gameState, expires_at: expiresAt }])
-          .select('id').single();
+        if (isAllBots) {
+          roomId = 'local';
+          import('../store/gameStore').then(({ useGameStore }) => {
+            useGameStore.getState().initGameConfig(playerCount, bots);
+          });
+        } else {
+          const gameState = { playerCount, bots };
+          const expiresAt = new Date(Date.now() + 30 * 60000).toISOString();
+
+          const { data: newRoom, error: roomError } = await insforge.database
+            .from('rooms')
+            .insert([{ code: roomCode, state: gameState, expires_at: expiresAt }])
+            .select('id').single();
+            
+          if (roomError) throw roomError;
+          roomId = (newRoom as any).id;
           
-        if (roomError) throw roomError;
-        roomId = (newRoom as any).id;
-        
-        await insforge.database.from('room_players').insert([{ room_id: roomId, user_id: userId, color: 'emerald', is_host: true }]);
+          await insforge.database.from('room_players').insert([{ room_id: roomId, user_id: userId, color: 'emerald', is_host: true }]);
+        }
       } else {
         const { data: existingRoom } = await insforge.database.from('rooms').select('id').eq('code', roomCode).maybeSingle();
         if (!existingRoom) throw new Error('Room not found');

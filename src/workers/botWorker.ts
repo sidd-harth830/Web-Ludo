@@ -3,7 +3,7 @@ import type { GameState, Token, PlayerColor } from '../store/gameStore';
 // Ludo Bot Heuristics Worker
 const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
 
-const END_INDICES: Record<PlayerColor, number> = { emerald: 50, blue: 11, red: 24, amber: 37 };
+const END_INDICES: Record<PlayerColor, number> = { emerald: 50, amber: 11, blue: 24, red: 37 };
 
 self.onmessage = (e: MessageEvent<{ type: string; state: GameState; color: PlayerColor }>) => {
   if (e.data.type === 'CALCULATE_MOVE') {
@@ -43,7 +43,7 @@ function calculateBestMove(state: GameState, color: PlayerColor): number | null 
 
 function evaluateMove(token: Token, roll: number, color: PlayerColor, opponents: Token[]): number | null {
   if (token.state === 'base') {
-    if (roll === 6) return 40; // High priority to get out of base
+    if (roll === 6) return 4000; // Massive priority to get out of base
     return null;
   }
 

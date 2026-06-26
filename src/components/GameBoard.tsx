@@ -6,32 +6,40 @@ import { Dice3, Star, User } from 'lucide-react';
 
 const generateTrackCoords = () => {
   const coords: { x: number; y: number }[] = [];
-  for (let i = 1; i <= 5; i++) coords.push({ x: 6, y: i });
-  for (let i = 5; i >= 0; i--) coords.push({ x: i, y: 6 });
-  coords.push({ x: 0, y: 7 });
-  coords.push({ x: 0, y: 8 });
-  for (let i = 1; i <= 5; i++) coords.push({ x: i, y: 8 });
-  for (let i = 9; i <= 14; i++) coords.push({ x: 6, y: i });
-  coords.push({ x: 7, y: 14 });
-  coords.push({ x: 8, y: 14 });
-  for (let i = 13; i >= 9; i--) coords.push({ x: 8, y: i });
-  for (let i = 9; i <= 14; i++) coords.push({ x: i, y: 8 });
-  coords.push({ x: 14, y: 7 });
-  coords.push({ x: 14, y: 6 });
-  for (let i = 13; i >= 9; i--) coords.push({ x: i, y: 6 });
-  for (let i = 5; i >= 0; i--) coords.push({ x: 8, y: i });
+  // Left arm, top row (left to right)
+  for (let i = 0; i <= 5; i++) coords.push({ x: i, y: 6 });
+  // Top arm, left column (bottom to top)
+  for (let i = 5; i >= 0; i--) coords.push({ x: 6, y: i });
+  // Top arm, top center
   coords.push({ x: 7, y: 0 });
-  coords.push({ x: 6, y: 0 });
+  // Top arm, right column (top to bottom)
+  for (let i = 0; i <= 5; i++) coords.push({ x: 8, y: i });
+  // Right arm, top row (left to right)
+  for (let i = 9; i <= 14; i++) coords.push({ x: i, y: 6 });
+  // Right arm, right center
+  coords.push({ x: 14, y: 7 });
+  // Right arm, bottom row (right to left)
+  for (let i = 14; i >= 9; i--) coords.push({ x: i, y: 8 });
+  // Bottom arm, right column (top to bottom)
+  for (let i = 9; i <= 14; i++) coords.push({ x: 8, y: i });
+  // Bottom arm, bottom center
+  coords.push({ x: 7, y: 14 });
+  // Bottom arm, left column (bottom to top)
+  for (let i = 14; i >= 9; i--) coords.push({ x: 6, y: i });
+  // Left arm, bottom row (right to left)
+  for (let i = 5; i >= 0; i--) coords.push({ x: i, y: 8 });
+  // Left arm, left center
+  coords.push({ x: 0, y: 7 });
   return coords;
 };
 
 const TRACK_COORDS = generateTrackCoords();
 
 const HOME_PATHS: Record<PlayerColor, { x: number; y: number }[]> = {
-  emerald: Array.from({ length: 5 }, (_, i) => ({ x: 7, y: i + 1 })),
-  red: Array.from({ length: 5 }, (_, i) => ({ x: i + 1, y: 7 })),
-  blue: Array.from({ length: 5 }, (_, i) => ({ x: 7, y: 13 - i })),
-  amber: Array.from({ length: 5 }, (_, i) => ({ x: 13 - i, y: 7 })),
+  emerald: Array.from({ length: 5 }, (_, i) => ({ x: i + 1, y: 7 })),
+  amber: Array.from({ length: 5 }, (_, i) => ({ x: 7, y: i + 1 })),
+  blue: Array.from({ length: 5 }, (_, i) => ({ x: 13 - i, y: 7 })),
+  red: Array.from({ length: 5 }, (_, i) => ({ x: 7, y: 13 - i })),
 };
 
 const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
@@ -68,9 +76,6 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
           <div className="font-bold text-lg w-8 h-8 flex items-center justify-center bg-zinc-100 dark:bg-zinc-950 rounded border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 mt-0.5">
             {diceRoll || '-'}
           </div>
-          {consecutiveSixes > 0 && (
-            <span className="text-[10px] text-red-500 absolute -bottom-5 whitespace-nowrap font-medium">Consecutive 6s: {consecutiveSixes}</span>
-          )}
         </div>
 
         <button 
@@ -118,15 +123,23 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
                 style={{ gridColumn: coord.x + 1, gridRow: coord.y + 1 }}
               >
                 {isSafe && <Star className="absolute w-1/2 h-1/2 text-zinc-300 dark:text-zinc-700 opacity-50" fill="currentColor" />}
-                <div className="flex flex-wrap items-center justify-center gap-[2px] w-full h-full p-[2px] z-10">
-                  {ts.map(t => (
-                    <TokenComponent 
+                <div className="relative w-full h-full">
+                  {ts.map((t, idx) => (
+                    <div 
                       key={t.id} 
-                      color={t.color} 
-                      className={ts.length > 1 ? "w-3 h-3 sm:w-4 sm:h-4" : "w-4 h-4 sm:w-6 sm:h-6"} 
-                      onClick={() => currentTurn === playerColor && t.color === playerColor && moveToken(t.id, t.color)}
-                      highlight={currentTurn === playerColor && t.color === playerColor}
-                    />
+                      className="absolute inset-0 flex items-center justify-center"
+                      style={{
+                        transform: ts.length > 1 ? `translate(calc(${idx} * 4px), calc(${idx} * -4px))` : 'none',
+                        zIndex: idx
+                      }}
+                    >
+                      <TokenComponent 
+                        color={t.color} 
+                        className={ts.length > 1 ? "w-4 h-4 sm:w-5 sm:h-5 shadow-sm ring-1 ring-white/50" : "w-4 h-4 sm:w-6 sm:h-6"} 
+                        onClick={() => currentTurn === playerColor && t.color === playerColor && moveToken(t.id, t.color)}
+                        highlight={currentTurn === playerColor && t.color === playerColor}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -143,15 +156,25 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
                   className={`border-[0.5px] border-black/10 dark:border-white/10 flex items-center justify-center bg-${color}-500/80`}
                   style={{ gridColumn: coord.x + 1, gridRow: coord.y + 1 }}
                 >
-                  {ts.map(t => (
-                    <TokenComponent 
-                      key={t.id} 
-                      color={t.color} 
-                      className="w-4 h-4 sm:w-6 sm:h-6" 
-                      onClick={() => currentTurn === playerColor && t.color === playerColor && moveToken(t.id, t.color)}
-                      highlight={currentTurn === playerColor && t.color === playerColor}
-                    />
-                  ))}
+                  <div className="relative w-full h-full">
+                    {ts.map((t, index) => (
+                      <div 
+                        key={t.id} 
+                        className="absolute inset-0 flex items-center justify-center"
+                        style={{
+                          transform: ts.length > 1 ? `translate(calc(${index} * 4px), calc(${index} * -4px))` : 'none',
+                          zIndex: index
+                        }}
+                      >
+                        <TokenComponent 
+                          color={t.color} 
+                          className="w-4 h-4 sm:w-6 sm:h-6" 
+                          onClick={() => currentTurn === playerColor && t.color === playerColor && moveToken(t.id, t.color)}
+                          highlight={currentTurn === playerColor && t.color === playerColor}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )
             })
@@ -184,7 +207,7 @@ const BaseArea: React.FC<{ color: PlayerColor, x: number, y: number, tokens: any
   
   return (
     <div 
-      className={`bg-${color}-500 relative flex items-center justify-center border-[0.5px] border-black/20`}
+      className={`bg-${color}-500 relative flex items-center justify-center border-4 border-${color}-600 dark:border-${color}-400/80 shadow-inner`}
       style={{ gridColumn: `${x + 1} / span 6`, gridRow: `${y + 1} / span 6` }}
     >
         <div className={`bg-white dark:bg-zinc-900 w-[70%] h-[70%] rounded-xl p-2 sm:p-4 shadow-sm flex items-center justify-center`}>

@@ -30,22 +30,23 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
 
     fetchMessages();
 
-    const channel = insforge.channel(`chat_${roomId}`)
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` }, 
-        (payload) => {
-          if (payload.new) {
-            const msg = payload.new as ChatMessage;
+    let channel: any = null;
+    if (roomId !== 'local') {
+      channel = insforge.channel(`chat_${roomId}`, { config: { broadcast: { self: true, ack: true } } })
+        .on('broadcast', { event: 'NEW_MESSAGE' }, (payload) => {
+          if (payload.payload) {
+            const msg = payload.payload as ChatMessage;
             setMessages((prev) => {
               if (prev.some(m => m.id === msg.id)) return prev;
               return [...prev, msg];
             });
           }
-        }
-      ).subscribe();
+        })
+        .subscribe();
+    }
 
     return () => {
-      insforge.removeChannel(channel);
+      if (channel) insforge.removeChannel(channel);
     };
   }, [roomId]);
 
@@ -75,18 +76,25 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
     const tempInput = input.trim();
     setInput(''); // Clear immediately for UX
 
-    const { error, data } = await insforge.database.from('chat_messages').insert([newMessage]).select();
+    if (roomId !== 'local') {
+      const { error, data } = await insforge.database.from('chat_messages').insert([newMessage]).select();
 
-    if (!error && data) {
-      const inserted = (data as any)?.[0] || newMessage;
-      setMessages(prev => {
-        if (prev.some(m => m.id === inserted.id)) return prev;
-        return [...prev, inserted as ChatMessage];
-      });
-      insforge.realtime.publish(`chat:${roomId}`, 'NEW_MESSAGE', inserted);
+      if (!error && data) {
+        const inserted = (data as any)?.[0] || newMessage;
+        setMessages(prev => {
+          if (prev.some(m => m.id === inserted.id)) return prev;
+          return [...prev, inserted as ChatMessage];
+        });
+        const channel = insforge.channel(`chat_${roomId}`);
+        channel.send({ type: 'broadcast', event: 'NEW_MESSAGE', payload: inserted });
+      } else {
+        // Revert if error
+        setInput(tempInput);
+      }
     } else {
-      // Revert if error
-      setInput(tempInput);
+      // Local Mode: just set it locally with a fake ID
+      const localMsg = { ...newMessage, id: Date.now().toString(), created_at: new Date().toISOString() };
+      setMessages(prev => [...prev, localMsg as ChatMessage]);
     }
   };
 

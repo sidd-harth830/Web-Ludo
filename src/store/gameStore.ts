@@ -22,6 +22,7 @@ export interface GameState {
   playerCount: number;
   bots: Record<PlayerColor, boolean>;
   winner: PlayerColor | null;
+  gameStatus: 'waiting' | 'playing';
   roomId: string | null;
 }
 
@@ -32,11 +33,12 @@ interface GameStore extends GameState {
   syncState: (state: Partial<GameState>) => void;
   setRoom: (roomId: string) => void;
   initGameConfig: (playerCount: number, bots: Record<PlayerColor, boolean>) => void;
+  resetGame: () => void;
 }
 
 const COLORS: PlayerColor[] = ['emerald', 'blue', 'red', 'amber'];
-const START_INDICES: Record<PlayerColor, number> = { emerald: 0, blue: 13, red: 26, amber: 39 };
-const END_INDICES: Record<PlayerColor, number> = { emerald: 50, blue: 11, red: 24, amber: 37 };
+const START_INDICES: Record<PlayerColor, number> = { emerald: 0, amber: 13, blue: 26, red: 39 };
+const END_INDICES: Record<PlayerColor, number> = { emerald: 50, amber: 11, blue: 24, red: 37 };
 const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
 
 const getInitialTokens = (): Token[] => {
@@ -60,7 +62,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
   playerCount: 4,
   bots: { emerald: false, blue: false, red: false, amber: false },
   winner: null,
+  gameStatus: 'waiting',
   roomId: null,
+
+  resetGame: () => set({
+    tokens: getInitialTokens(),
+    currentTurn: 'emerald',
+    diceRoll: null,
+    consecutiveSixes: 0,
+    hasRolled: false,
+    bonusRoll: false,
+    winner: null,
+    gameStatus: 'waiting',
+    roomId: null
+  }),
 
   setRoom: (roomId) => set({ roomId }),
 
@@ -101,9 +116,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    const hasValidMoves = checkValidMoves(state.tokens, state.currentTurn, roll);
+    const validTokens = getValidTokens(state.tokens, state.currentTurn, roll);
 
-    if (!hasValidMoves) {
+    if (validTokens.length === 0) {
       // Pass turn if no moves
       setTimeout(() => get().passTurn(), 1000);
     }
@@ -117,6 +132,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     
     set(newState);
     if (state.roomId) broadcastState(state.roomId, newState);
+
+    // Auto-move if exactly 1 valid token
+    if (validTokens.length === 1 && !state.bots[state.currentTurn]) {
+      setTimeout(() => {
+        get().moveToken(validTokens[0].id, state.currentTurn);
+      }, 500);
+    }
   },
 
   moveToken: (tokenId, color) => {
@@ -247,19 +269,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
   }
 }));
 
-const checkValidMoves = (tokens: Token[], color: PlayerColor, roll: number): boolean => {
-  const myTokens = tokens.filter((t) => t.color === color);
-  for (const t of myTokens) {
+const getValidTokens = (tokens: Token[], color: PlayerColor, roll: number): Token[] => {
+  return tokens.filter((t) => t.color === color).filter((t) => {
     if (t.state === 'base' && roll === 6) return true;
-    if (t.state === 'track') return true; // Technically always can move, unless exact home entry fails, but for simplicity here we assume true, though we should check exact home
+    if (t.state === 'track') {
+      const endIdx = END_INDICES[color];
+      const distanceToEnd = endIdx >= t.position ? endIdx - t.position : (52 - t.position) + endIdx;
+      if (roll <= distanceToEnd + 6) return true;
+    }
     if (t.state === 'homePath' && t.position + roll <= 5) return true;
-  }
-  return false;
+    return false;
+  });
 };
 
 const broadcastState = (roomId: string, stateUpdate: Partial<GameState>) => {
-  insforge.realtime.publish(`room:${roomId}`, 'STATE_UPDATE', stateUpdate);
+  if (roomId === 'local') return;
+  const channel = insforge.channel(`game_${roomId}`);
+  channel.send({ type: 'broadcast', event: 'STATE_UPDATE', payload: stateUpdate });
   const fullState = useGameStore.getState();
-  // Persist to database so `postgres_changes` pushes it to other clients
+  // Persist to database for history/reconnects
   insforge.database.from('rooms').update({ state: fullState }).eq('id', roomId).then();
 };

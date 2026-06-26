@@ -36,6 +36,21 @@ export const Room: React.FC = () => {
     setRoom(roomId);
 
     const initRoom = async () => {
+      if (roomId === 'local') {
+        setRoomCode('LOCAL');
+        setIsHost(true);
+        setPlayerColor('emerald');
+        const colors = ['emerald', 'blue', 'red', 'amber'];
+        const pNames: Record<string, string> = {};
+        const cNames: Record<string, string> = {};
+        colors.forEach(c => {
+          cNames[c] = c === 'emerald' ? 'You' : 'Bot';
+        });
+        setColorNames(cNames);
+        useGameStore.getState().syncState({ gameStatus: 'playing' });
+        return;
+      }
+
       // Fetch Room Config & Expiration
       const { data: roomData } = await insforge.database.from('rooms').select('code, state, status, expires_at').eq('id', roomId).maybeSingle();
       if (roomData) {
@@ -76,20 +91,27 @@ export const Room: React.FC = () => {
         });
         setPlayerNames(pNames);
         setColorNames(cNames);
+        
+        const state = useGameStore.getState();
+        const humanCount = Object.values(state.bots).filter(b => !b).length;
+        if (players.length >= humanCount) {
+          useGameStore.getState().syncState({ gameStatus: 'playing' });
+        }
       }
     };
     initRoom();
 
     // Subscribe to state updates via realtime
-    const gameChannel = insforge.channel(`game_${roomId}`)
-      .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, 
-        (payload) => {
-          if (payload.new && payload.new.state) {
-            useGameStore.getState().syncState(payload.new.state as Partial<GameState>);
+    let gameChannel: any = null;
+    if (roomId !== 'local') {
+      gameChannel = insforge.channel(`game_${roomId}`, { config: { broadcast: { self: true, ack: true } } })
+        .on('broadcast', { event: 'SYNC_STATE' }, (payload) => {
+          if (payload.payload) {
+            useGameStore.getState().syncState(payload.payload as Partial<GameState>);
           }
-        }
-      ).subscribe();
+        })
+        .subscribe();
+    }
 
     // Setup Bot Worker
     botWorkerRef.current = new Worker(new URL('../workers/botWorker.ts', import.meta.url), { type: 'module' });
@@ -105,7 +127,7 @@ export const Room: React.FC = () => {
     };
 
     return () => {
-      insforge.removeChannel(gameChannel);
+      if (gameChannel) insforge.removeChannel(gameChannel);
       botWorkerRef.current?.terminate();
     };
   }, [roomId, navigate, setRoom, syncState]);
@@ -215,25 +237,27 @@ export const Room: React.FC = () => {
             <div>
               <span className="text-[11px] text-muted uppercase font-semibold tracking-widest">Room Code</span>
               <div className="font-mono text-lg tracking-wider break-all bg-surface-strong px-2 py-1 rounded mt-0.5 border border-hairline-strong">
-                {roomCode || roomId?.substring(0, 8)}
+                {roomId === 'local' ? 'Local Mode' : (roomCode || roomId?.substring(0, 8))}
               </div>
             </div>
-            <div className="flex gap-2">
-              <button 
-                onClick={handleCopy} 
-                className="p-1.5 rounded bg-surface-strong hover:bg-hairline-strong transition-colors" 
-                title="Copy Code"
-              >
-                {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} className="text-ink" />}
-              </button>
-              <button 
-                onClick={handleShare} 
-                className="p-1.5 rounded bg-surface-strong hover:bg-hairline-strong transition-colors" 
-                title="Copy Invite Link"
-              >
-                <Share2 size={16} className="text-ink" />
-              </button>
-            </div>
+            {roomId !== 'local' && (
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleCopy} 
+                  className="p-1.5 rounded bg-surface-strong hover:bg-hairline-strong transition-colors" 
+                  title="Copy Code"
+                >
+                  {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} className="text-ink" />}
+                </button>
+                <button 
+                  onClick={handleShare} 
+                  className="p-1.5 rounded bg-surface-strong hover:bg-hairline-strong transition-colors" 
+                  title="Copy Invite Link"
+                >
+                  <Share2 size={16} className="text-ink" />
+                </button>
+              </div>
+            )}
           </div>
           <div>
             <p className="text-[14px] mt-1 text-body">
@@ -241,7 +265,10 @@ export const Room: React.FC = () => {
             </p>
           </div>
           <button 
-            onClick={() => navigate('/')}
+            onClick={() => {
+              useGameStore.getState().resetGame();
+              navigate('/');
+            }}
             className="btn-secondary w-full md:w-auto text-center mt-2 border-red-200 text-red-500 hover:bg-red-50"
           >
             Leave
@@ -258,7 +285,18 @@ export const Room: React.FC = () => {
       </div>
 
       {/* Center Board */}
-      <div className="flex-1 w-full h-full min-w-0 min-h-0 flex flex-col items-center justify-center p-2 md:p-4 overflow-hidden">
+      <div className="flex-1 w-full h-full min-w-0 min-h-0 flex flex-col items-center justify-center p-2 md:p-4 overflow-hidden relative">
+        {state.gameStatus === 'waiting' && roomId !== 'local' && (
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[var(--bg-canvas)]/80 backdrop-blur-sm">
+            <div className="feature-card text-center p-8 max-w-sm">
+              <h2 className="text-2xl font-bold mb-2 text-ink">Waiting for players...</h2>
+              <p className="text-body text-sm mb-4">Share the room code for others to join.</p>
+              <div className="font-mono text-xl font-bold bg-surface-strong px-4 py-2 rounded border border-hairline-strong mb-6">
+                {roomCode}
+              </div>
+            </div>
+          </div>
+        )}
         <GameBoard playerColor={playerColor} colorNames={colorNames} />
       </div>
 
