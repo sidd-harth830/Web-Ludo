@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { insforge } from '../lib/insforge';
 import type { PlayerColor } from '../store/gameStore';
-import { Users, Bot, User } from 'lucide-react';
+import { Bot, User } from 'lucide-react';
 
 const COLORS: PlayerColor[] = ['emerald', 'blue', 'red', 'amber'];
 
@@ -146,13 +146,13 @@ export const Home: React.FC = () => {
           
           <form onSubmit={(e) => { e.preventDefault(); if (username.trim()) performJoinOrCreate(code, username, 'join'); }} className="flex flex-col gap-4">
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase tracking-wide">Username</label>
+              <label className="block text-[11px] font-semibold text-ink mb-1.5 uppercase tracking-widest">Username</label>
               <input 
                 type="text" 
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 transition-all"
+                className="text-input"
                 placeholder="Enter your name"
                 autoFocus
               />
@@ -160,14 +160,14 @@ export const Home: React.FC = () => {
             <button 
               type="submit" 
               disabled={loading || !username.trim()}
-              className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-50 dark:hover:bg-zinc-200 text-zinc-50 dark:text-zinc-900 disabled:opacity-50 px-4 py-2 rounded-md text-sm font-semibold transition-colors shadow-sm mt-2"
+              className="btn-primary mt-2"
             >
               {loading ? 'Joining...' : 'Join Game'}
             </button>
             <button 
               type="button"
               onClick={() => { setInviteModalOpen(false); navigate('/'); }}
-              className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 mt-2"
+              className="btn-secondary"
             >
               Cancel
             </button>
@@ -178,25 +178,28 @@ export const Home: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4">
-      <div className="mb-8 text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 mb-2">Web Ludo</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">Multiplayer Board Game Platform</p>
+    <div className="flex-1 flex flex-col items-center justify-center p-4 bg-[var(--bg-canvas)] relative">
+      {/* Sky wash gradient background for hero */}
+      <div className="absolute top-0 inset-x-0 h-[600px] bg-gradient-to-b from-[var(--gradient-sky-light,#cfe7ff)] to-[var(--gradient-sky-mid,#a8c8e8)] opacity-20 pointer-events-none -z-10 dark:opacity-0" />
+      
+      <div className="mb-12 text-center relative z-10">
+        <h1 className="text-[64px] leading-[1.05] tracking-[-1.92px] font-semibold text-ink mb-4">Web Ludo</h1>
+        <p className="text-[18px] text-body">Multiplayer Board Game Platform</p>
       </div>
 
-      <div className="glass-panel w-full max-w-md bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+      <div className="feature-card w-full max-w-md p-0 overflow-hidden relative z-10">
         {/* Tabs */}
-        <div className="flex border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex border-b border-hairline-strong">
           <button
             type="button"
-            className={`flex-1 py-3 text-sm font-semibold transition-colors ${activeTab === 'join' ? 'text-zinc-900 dark:text-zinc-50 border-b-2 border-zinc-900 dark:border-zinc-50 bg-zinc-50 dark:bg-zinc-800/50' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/30'}`}
+            className={`flex-1 py-4 text-[14px] font-medium transition-colors ${activeTab === 'join' ? 'text-ink border-b-2 border-primary bg-surface-strong/30' : 'text-body hover:text-ink hover:bg-surface-strong/10'}`}
             onClick={() => setActiveTab('join')}
           >
             Join Game
           </button>
           <button
             type="button"
-            className={`flex-1 py-3 text-sm font-semibold transition-colors ${activeTab === 'host' ? 'text-zinc-900 dark:text-zinc-50 border-b-2 border-zinc-900 dark:border-zinc-50 bg-zinc-50 dark:bg-zinc-800/50' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/30'}`}
+            className={`flex-1 py-4 text-[14px] font-medium transition-colors ${activeTab === 'host' ? 'text-ink border-b-2 border-primary bg-surface-strong/30' : 'text-body hover:text-ink hover:bg-surface-strong/10'}`}
             onClick={() => setActiveTab('host')}
           >
             Host Game
@@ -207,13 +210,13 @@ export const Home: React.FC = () => {
           <div className="space-y-4">
             {/* Username Input - Shared */}
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase tracking-wide">Username</label>
+              <label className="block text-[11px] font-semibold text-ink mb-1.5 uppercase tracking-widest">Username</label>
               <input 
                 type="text" 
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 transition-all"
+                className="text-input"
                 placeholder="Enter your name"
               />
             </div>
@@ -221,13 +224,13 @@ export const Home: React.FC = () => {
             {/* Join Room Specific */}
             {activeTab === 'join' && (
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 uppercase tracking-wide">Room Code</label>
+                <label className="block text-[11px] font-semibold text-ink mb-1.5 uppercase tracking-widest">Room Code</label>
                 <input 
                   type="text" 
                   required
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 transition-all uppercase font-mono"
+                  className="text-input uppercase font-mono"
                   placeholder="e.g. A1B2-C3D4-E5F6"
                 />
               </div>
@@ -299,7 +302,7 @@ export const Home: React.FC = () => {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors shadow-sm mt-2 flex items-center justify-center gap-2"
+            className="btn-primary w-full mt-2"
           >
             {loading ? 'Processing...' : (activeTab === 'join' ? 'Join Room' : 'Create Game')}
           </button>

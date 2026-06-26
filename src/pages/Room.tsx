@@ -185,15 +185,14 @@ export const Room: React.FC = () => {
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden flex flex-col md:flex-row bg-[var(--bg-primary)] overscroll-none">
       
-      {/* Expiration Overlay */}
       {isExpired && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="glass-panel p-8 flex flex-col items-center gap-6 max-w-sm text-center shadow-2xl scale-105 transition-transform animate-in zoom-in duration-300">
-            <h2 className="text-3xl font-bold text-red-500">Room Expired</h2>
-            <p className="text-slate-200">The 30-minute time limit for this room has ended.</p>
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-surface-dark/80 backdrop-blur-sm">
+          <div className="feature-card p-8 flex flex-col items-center gap-6 max-w-sm text-center shadow-2xl scale-105 transition-transform animate-in zoom-in duration-300">
+            <h2 className="text-[28px] font-bold text-red-500">Room Expired</h2>
+            <p className="text-body">The 30-minute time limit for this room has ended.</p>
             <button 
               onClick={() => navigate('/')}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg font-bold transition-all w-full"
+              className="btn-primary w-full"
             >
               Return to Home
             </button>
@@ -211,49 +210,49 @@ export const Room: React.FC = () => {
           </div>
         )}
 
-        <div className="glass-panel p-5 flex flex-col gap-4 md:flex-col md:items-start md:gap-4">
+        <div className="feature-card flex flex-col gap-4 md:flex-col md:items-start md:gap-4">
           <div className="w-full flex items-center justify-between">
             <div>
-              <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Room Code</span>
-              <div className="font-mono text-lg tracking-wider break-all bg-white/5 px-2 py-1 rounded mt-0.5 border border-zinc-200 dark:border-zinc-800">
+              <span className="text-[11px] text-muted uppercase font-semibold tracking-widest">Room Code</span>
+              <div className="font-mono text-lg tracking-wider break-all bg-surface-strong px-2 py-1 rounded mt-0.5 border border-hairline-strong">
                 {roomCode || roomId?.substring(0, 8)}
               </div>
             </div>
             <div className="flex gap-2">
               <button 
                 onClick={handleCopy} 
-                className="p-1.5 rounded bg-slate-200/50 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 transition-colors" 
+                className="p-1.5 rounded bg-surface-strong hover:bg-hairline-strong transition-colors" 
                 title="Copy Code"
               >
-                {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} className="text-slate-700 dark:text-slate-300" />}
+                {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} className="text-ink" />}
               </button>
               <button 
                 onClick={handleShare} 
-                className="p-1.5 rounded bg-slate-200/50 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 transition-colors" 
+                className="p-1.5 rounded bg-surface-strong hover:bg-hairline-strong transition-colors" 
                 title="Copy Invite Link"
               >
-                <Share2 size={16} className="text-slate-700 dark:text-slate-300" />
+                <Share2 size={16} className="text-ink" />
               </button>
             </div>
           </div>
           <div>
-            <p className="text-sm mt-1 opacity-80">
+            <p className="text-[14px] mt-1 text-body">
               Playing as <span className={`font-bold text-${playerColor}-500 capitalize`}>{colorNames[playerColor] || playerColor}</span>
             </p>
           </div>
           <button 
             onClick={() => navigate('/')}
-            className="bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 px-4 py-2 rounded-lg transition-colors text-sm font-semibold border border-red-500/30 w-full md:w-auto text-center mt-2"
+            className="btn-secondary w-full md:w-auto text-center mt-2 border-red-200 text-red-500 hover:bg-red-50"
           >
             Leave
           </button>
         </div>
 
-        <div className="glass-panel p-5 hidden md:block">
-           <h3 className="font-bold mb-2 text-sm uppercase tracking-wider opacity-80">Current Turn</h3>
+        <div className="feature-card hidden md:block">
+           <h3 className="font-bold mb-2 text-[11px] uppercase tracking-widest text-muted">Current Turn</h3>
            <div className={`text-2xl font-bold capitalize text-${currentTurn}-500 flex items-center gap-2`}>
              {currentTurn} 
-             {isBotTurn && <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full uppercase">Bot</span>}
+             {isBotTurn && <span className="text-[10px] bg-surface-dark text-on-dark px-2 py-0.5 rounded-pill uppercase">Bot</span>}
            </div>
         </div>
       </div>
@@ -278,9 +277,9 @@ export const Room: React.FC = () => {
       {/* Mobile Chat Toggle Button */}
       <button 
         onClick={() => setShowChat(true)}
-        className="md:hidden fixed bottom-6 right-6 p-4 rounded-full bg-[var(--highlight-secondary)] text-white shadow-lg z-40 hover:scale-105 transition-transform"
+        className="md:hidden fixed bottom-6 right-6 p-4 rounded-full bg-primary text-on-primary shadow-[0_4px_12px_rgba(0,0,0,0.15)] z-40 hover:scale-105 transition-transform"
       >
-        <MessageSquare size={24} className="text-[var(--bg-primary)]" />
+        <MessageSquare size={24} />
       </button>
 
     </div>

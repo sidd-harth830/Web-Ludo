@@ -4,21 +4,57 @@
 
 @layer base {
   :root {
-    --bg-primary: #FAFAFA;
-    --panel-bg: #FFFFFF;
-    --panel-border: #E4E4E7;
-    --text-primary: #09090B;
-    --highlight-secondary: #09090B;
-    --panel-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    --bg-canvas: #ffffff;
+    --bg-canvas-soft: #fafafa;
+    --surface-card: #ffffff;
+    --surface-strong: #f0f0f3;
+    --surface-dark: #171717;
+    --surface-dark-elevated: #1a1a1a;
+    --primary: #000000;
+    --primary-active: #1a1a1a;
+    --ink: #171717;
+    --body: #60646c;
+    --muted: #999999;
+    --hairline: #f0f0f3;
+    --hairline-strong: #dcdee0;
+    --text-link: #0d74ce;
+    --on-primary: #ffffff;
+    --on-dark: #ffffff;
+    
+    /* Legacy Ludo bindings */
+    --bg-primary: var(--bg-canvas);
+    --panel-bg: var(--surface-card);
+    --panel-border: var(--hairline-strong);
+    --text-primary: var(--ink);
+    --highlight-secondary: var(--primary);
+    --panel-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   }
 
   .dark {
-    --bg-primary: #09090B;
-    --panel-bg: #18181B;
-    --panel-border: #27272A;
-    --text-primary: #FAFAFA;
-    --highlight-secondary: #FAFAFA;
-    --panel-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+    --bg-canvas: #000000;
+    --bg-canvas-soft: #111111;
+    --surface-card: #171717;
+    --surface-strong: #222222;
+    --surface-dark: #111111;
+    --surface-dark-elevated: #1a1a1a;
+    --primary: #ffffff;
+    --primary-active: #e6e6e6;
+    --ink: #ffffff;
+    --body: #888888;
+    --muted: #666666;
+    --hairline: #222222;
+    --hairline-strong: #333333;
+    --text-link: #3b82f6;
+    --on-primary: #000000;
+    --on-dark: #ffffff;
+    
+    /* Legacy Ludo bindings */
+    --bg-primary: var(--bg-canvas);
+    --panel-bg: var(--surface-card);
+    --panel-border: var(--hairline-strong);
+    --text-primary: var(--ink);
+    --highlight-secondary: var(--primary);
+    --panel-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   }
 
   body {
@@ -29,6 +65,47 @@
 }
 
 @layer components {
+  /* GetDesign Expo Components */
+  .btn-primary {
+    @apply rounded-md px-[18px] py-[10px] text-[14px] font-medium h-[40px] flex items-center justify-center transition-colors whitespace-nowrap;
+    background-color: var(--primary);
+    color: var(--on-primary);
+  }
+  .btn-primary:hover {
+    background-color: var(--primary-active);
+  }
+  
+  .btn-secondary {
+    @apply rounded-md px-[17px] py-[9px] text-[14px] font-medium h-[40px] border flex items-center justify-center transition-colors whitespace-nowrap shadow-sm;
+    background-color: var(--surface-card);
+    color: var(--ink);
+    border-color: var(--hairline-strong);
+  }
+  .btn-secondary:hover {
+    background-color: var(--surface-strong);
+  }
+  
+  .text-input {
+    @apply rounded-md px-[16px] py-[12px] h-[44px] border focus:outline-none focus:ring-1 transition-all w-full text-[14px];
+    background-color: var(--surface-card);
+    color: var(--ink);
+    border-color: var(--hairline-strong);
+  }
+  .text-input::placeholder {
+    color: var(--muted);
+  }
+  .text-input:focus {
+    border-color: var(--ink);
+    --tw-ring-color: var(--ink);
+  }
+  
+  .feature-card {
+    @apply rounded-lg p-[24px] border shadow-[0_4px_12px_rgba(0,0,0,0.04)];
+    background-color: var(--surface-card);
+    color: var(--ink);
+    border-color: var(--hairline-strong);
+  }
+
   .glass-panel {
     background-color: var(--panel-bg);
     border-color: var(--panel-border);

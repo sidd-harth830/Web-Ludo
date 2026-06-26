@@ -91,33 +91,33 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
   };
 
   return (
-    <div className="glass-panel flex flex-col h-full w-full overflow-hidden shadow-2xl">
-      <div className="bg-slate-100/50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 p-3 flex justify-between items-center font-semibold text-sm">
-        <span className="text-slate-800 dark:text-slate-200">Live Chat</span>
+    <div className="bg-surface-card border border-hairline-strong rounded-xl flex flex-col h-full w-full overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.04)]">
+      <div className="bg-surface-strong/30 border-b border-hairline-strong p-3 flex justify-between items-center font-semibold text-sm">
+        <span className="text-ink">Live Chat</span>
         {onClose && (
-          <button onClick={onClose} className="lg:hidden p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
-            <X size={18} className="text-slate-600 dark:text-slate-400" />
+          <button onClick={onClose} className="lg:hidden p-1 rounded hover:bg-surface-strong transition-colors">
+            <X size={18} className="text-muted" />
           </button>
         )}
       </div>
       
-      <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3 bg-white/30 dark:bg-black/10">
+      <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3 bg-canvas-soft">
         {messages.length === 0 && (
-          <div className="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">
+          <div className="text-center text-xs text-muted mt-4">
             No messages yet. Say hello!
           </div>
         )}
         {messages.map((m) => (
           <div key={m.id} className={`flex flex-col ${m.user_id === userId ? 'items-end' : 'items-start'} mb-1`}>
             {m.user_id !== userId && (
-              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 ml-1">
+              <span className="text-[10px] font-bold text-muted mb-0.5 ml-1">
                 {userMap[m.user_id] || 'Unknown Player'}
               </span>
             )}
             <div className={`px-3 py-2 rounded-lg max-w-[85%] text-sm shadow-sm ${
               m.user_id === userId 
-                ? 'bg-blue-500 text-white rounded-br-sm' 
-                : 'bg-white dark:bg-white/10 text-slate-800 dark:text-slate-200 rounded-bl-sm border border-slate-100 dark:border-white/5'
+                ? 'bg-primary text-on-primary rounded-br-sm' 
+                : 'bg-surface-card text-ink rounded-bl-sm border border-hairline-strong'
             }`}>
               {m.content}
             </div>
@@ -126,19 +126,19 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
         <div ref={endRef} />
       </div>
       
-      <form onSubmit={sendMessage} className="p-3 border-t border-slate-200 dark:border-white/10 flex gap-2 bg-slate-50/50 dark:bg-white/5 relative">
+      <form onSubmit={sendMessage} className="p-3 border-t border-hairline-strong flex gap-2 bg-surface-card relative">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={isRateLimited ? "Slow down..." : "Type a message..."}
           disabled={isRateLimited}
-          className={`flex-1 bg-white dark:bg-black/20 border ${isRateLimited ? 'border-red-300 dark:border-red-500/50 opacity-70' : 'border-slate-300 dark:border-white/10'} rounded-md px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors shadow-inner`}
+          className={`text-input flex-1 ${isRateLimited ? 'opacity-70' : ''}`}
         />
         <button 
           type="submit" 
           disabled={!input.trim() || isRateLimited}
-          className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:hover:bg-blue-500 p-2 rounded-md transition-colors text-white shadow-sm"
+          className="btn-primary w-11 px-0 flex items-center justify-center shrink-0"
         >
           <Send size={16} />
         </button>
