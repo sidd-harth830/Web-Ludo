@@ -30,23 +30,30 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
 
     fetchMessages();
 
-    let channel: any = null;
+    let subscribedChannel: string | null = null;
+    
+    const handleNewMessage = (payload: any) => {
+      if (payload) {
+        const msg = payload as ChatMessage;
+        setMessages((prev) => {
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
+    };
+
     if (roomId !== 'local') {
-      channel = insforge.channel(`chat_${roomId}`, { config: { broadcast: { self: true, ack: true } } })
-        .on('broadcast', { event: 'NEW_MESSAGE' }, (payload) => {
-          if (payload.payload) {
-            const msg = payload.payload as ChatMessage;
-            setMessages((prev) => {
-              if (prev.some(m => m.id === msg.id)) return prev;
-              return [...prev, msg];
-            });
-          }
-        })
-        .subscribe();
+      const channelName = `chat_${roomId}`;
+      insforge.realtime.subscribe(channelName).then(res => {
+        if (res.ok) subscribedChannel = channelName;
+      });
+
+      insforge.realtime.on('NEW_MESSAGE', handleNewMessage);
     }
 
     return () => {
-      if (channel) insforge.removeChannel(channel);
+      if (subscribedChannel) insforge.realtime.unsubscribe(subscribedChannel);
+      insforge.realtime.off('NEW_MESSAGE', handleNewMessage);
     };
   }, [roomId]);
 
@@ -85,8 +92,7 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
           if (prev.some(m => m.id === inserted.id)) return prev;
           return [...prev, inserted as ChatMessage];
         });
-        const channel = insforge.channel(`chat_${roomId}`);
-        channel.send({ type: 'broadcast', event: 'NEW_MESSAGE', payload: inserted });
+        insforge.realtime.publish(`chat_${roomId}`, 'NEW_MESSAGE', inserted).catch(console.error);
       } else {
         // Revert if error
         setInput(tempInput);

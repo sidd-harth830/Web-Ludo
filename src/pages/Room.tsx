@@ -23,7 +23,7 @@ export const Room: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [copied, setCopied] = useState(false);
 
-  const { setRoom, syncState, currentTurn, tokens, diceRoll } = useGameStore();
+  const { setRoom, syncState, currentTurn, tokens, diceRoll, gameStatus } = useGameStore();
   const botWorkerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
@@ -41,7 +41,6 @@ export const Room: React.FC = () => {
         setIsHost(true);
         setPlayerColor('emerald');
         const colors = ['emerald', 'blue', 'red', 'amber'];
-        const pNames: Record<string, string> = {};
         const cNames: Record<string, string> = {};
         colors.forEach(c => {
           cNames[c] = c === 'emerald' ? 'You' : 'Bot';
@@ -92,25 +91,82 @@ export const Room: React.FC = () => {
         setPlayerNames(pNames);
         setColorNames(cNames);
         
-        const state = useGameStore.getState();
-        const humanCount = Object.values(state.bots).filter(b => !b).length;
+        const storeState = useGameStore.getState();
+        const humanCount = Object.values(storeState.bots).filter(b => !b).length;
         if (players.length >= humanCount) {
           useGameStore.getState().syncState({ gameStatus: 'playing' });
         }
       }
     };
     initRoom();
+    
+    const handleBeforeUnload = () => {
+      if (roomId && roomId !== 'local' && storedUserId) {
+        insforge.database.from('room_players').delete().match({ room_id: roomId, user_id: storedUserId }).then();
+        if (useGameStore.getState().activePlayers.length <= 1) {
+          insforge.database.from('rooms').update({ status: 'finished' }).eq('id', roomId).then();
+        }
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
-    // Subscribe to state updates via realtime
-    let gameChannel: any = null;
+    let subscribedChannel: string | null = null;
+    
+    const handleSync = (payload: any) => {
+      if (payload) {
+        useGameStore.getState().syncState(payload as Partial<GameState>);
+      }
+    };
+    
+    const handlePresenceJoin = (message: any) => {
+      const storeState = useGameStore.getState();
+      const newPlayers = [...new Set([...storeState.activePlayers, message.member.presenceId])];
+      useGameStore.getState().syncState({ activePlayers: newPlayers });
+      const humanCount = Object.values(storeState.bots).filter(b => !b).length;
+      if (newPlayers.length >= humanCount) {
+        useGameStore.getState().syncState({ gameStatus: 'playing' });
+      }
+    };
+
+    const handlePresenceLeave = (message: any) => {
+      const storeState = useGameStore.getState();
+      const newPlayers = storeState.activePlayers.filter(id => id !== message.member.presenceId);
+      useGameStore.getState().syncState({ activePlayers: newPlayers });
+      const humanCount = Object.values(storeState.bots).filter(b => !b).length;
+      
+      if (newPlayers.length === 0) {
+        insforge.database.from('rooms').update({ status: 'finished' }).eq('id', roomId).then();
+      } else if (storeState.gameStatus === 'playing' && newPlayers.length < humanCount) {
+        useGameStore.getState().syncState({ gameStatus: 'paused' });
+      }
+    };
+
     if (roomId !== 'local') {
-      gameChannel = insforge.channel(`game_${roomId}`, { config: { broadcast: { self: true, ack: true } } })
-        .on('broadcast', { event: 'SYNC_STATE' }, (payload) => {
-          if (payload.payload) {
-            useGameStore.getState().syncState(payload.payload as Partial<GameState>);
+      const setupSocket = async () => {
+        try {
+          await insforge.realtime.connect();
+          const channelName = `game_${roomId}`;
+          const res = await insforge.realtime.subscribe(channelName);
+          if (res.ok) {
+            subscribedChannel = channelName;
+            const activeKeys = res.presence.members.map(m => m.presenceId);
+            useGameStore.getState().syncState({ activePlayers: activeKeys });
+            const storeState = useGameStore.getState();
+            const humanCount = Object.values(storeState.bots).filter(b => !b).length;
+            if (activeKeys.length >= humanCount) {
+              useGameStore.getState().syncState({ gameStatus: 'playing' });
+            }
           }
-        })
-        .subscribe();
+        } catch (e) {
+          console.error('Socket connect failed', e);
+        }
+      };
+      
+      insforge.realtime.on('SYNC_STATE', handleSync);
+      insforge.realtime.on('presence:join', handlePresenceJoin);
+      insforge.realtime.on('presence:leave', handlePresenceLeave);
+      
+      setupSocket();
     }
 
     // Setup Bot Worker
@@ -127,7 +183,11 @@ export const Room: React.FC = () => {
     };
 
     return () => {
-      if (gameChannel) insforge.removeChannel(gameChannel);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (subscribedChannel) insforge.realtime.unsubscribe(subscribedChannel);
+      insforge.realtime.off('SYNC_STATE', handleSync);
+      insforge.realtime.off('presence:join', handlePresenceJoin);
+      insforge.realtime.off('presence:leave', handlePresenceLeave);
       botWorkerRef.current?.terminate();
     };
   }, [roomId, navigate, setRoom, syncState]);
@@ -286,12 +346,23 @@ export const Room: React.FC = () => {
 
       {/* Center Board */}
       <div className="flex-1 w-full h-full min-w-0 min-h-0 flex flex-col items-center justify-center p-2 md:p-4 overflow-hidden relative">
-        {state.gameStatus === 'waiting' && roomId !== 'local' && (
+        {gameStatus === 'waiting' && roomId !== 'local' && (
           <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[var(--bg-canvas)]/80 backdrop-blur-sm">
             <div className="feature-card text-center p-8 max-w-sm">
               <h2 className="text-2xl font-bold mb-2 text-ink">Waiting for players...</h2>
               <p className="text-body text-sm mb-4">Share the room code for others to join.</p>
               <div className="font-mono text-xl font-bold bg-surface-strong px-4 py-2 rounded border border-hairline-strong mb-6">
+                {roomCode}
+              </div>
+            </div>
+          </div>
+        )}
+        {gameStatus === 'paused' && roomId !== 'local' && (
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-zinc-900/80 dark:bg-zinc-100/10 backdrop-blur-md">
+            <div className="feature-card text-center p-8 max-w-sm bg-zinc-900 border border-zinc-800 dark:bg-zinc-100 dark:border-zinc-200">
+              <h2 className="text-2xl font-bold mb-2 text-zinc-100 dark:text-zinc-900">Game Paused</h2>
+              <p className="text-zinc-400 dark:text-zinc-500 text-sm mb-4">A player disconnected. Waiting for a replacement or for them to rejoin...</p>
+              <div className="font-mono text-xl font-bold bg-zinc-800 dark:bg-zinc-200 text-zinc-100 dark:text-zinc-900 px-4 py-2 rounded border border-zinc-700 dark:border-zinc-300 mb-6">
                 {roomCode}
               </div>
             </div>

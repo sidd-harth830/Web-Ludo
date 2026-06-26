@@ -22,7 +22,8 @@ export interface GameState {
   playerCount: number;
   bots: Record<PlayerColor, boolean>;
   winner: PlayerColor | null;
-  gameStatus: 'waiting' | 'playing';
+  gameStatus: 'waiting' | 'playing' | 'paused';
+  activePlayers: string[];
   roomId: string | null;
 }
 
@@ -63,6 +64,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   bots: { emerald: false, blue: false, red: false, amber: false },
   winner: null,
   gameStatus: 'waiting',
+  activePlayers: [],
   roomId: null,
 
   resetGame: () => set({
@@ -74,6 +76,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     bonusRoll: false,
     winner: null,
     gameStatus: 'waiting',
+    activePlayers: [],
     roomId: null
   }),
 
@@ -284,8 +287,7 @@ const getValidTokens = (tokens: Token[], color: PlayerColor, roll: number): Toke
 
 const broadcastState = (roomId: string, stateUpdate: Partial<GameState>) => {
   if (roomId === 'local') return;
-  const channel = insforge.channel(`game_${roomId}`);
-  channel.send({ type: 'broadcast', event: 'STATE_UPDATE', payload: stateUpdate });
+  insforge.realtime.publish(`game_${roomId}`, 'SYNC_STATE', stateUpdate).catch(console.error);
   const fullState = useGameStore.getState();
   // Persist to database for history/reconnects
   insforge.database.from('rooms').update({ state: fullState }).eq('id', roomId).then();

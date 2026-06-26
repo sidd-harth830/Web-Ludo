@@ -118,21 +118,28 @@ export const Home: React.FC = () => {
         if (!existingRoom) throw new Error('Room not found');
         roomId = (existingRoom as any).id;
         
-        const { data: players } = await insforge.database.from('room_players').select('color').eq('room_id', roomId);
-        const usedColors = (players as any[])?.map(p => p.color) || [];
-        
-        const { data: roomData } = await insforge.database.from('rooms').select('state, status').eq('id', roomId).single();
-        if ((roomData as any).status === 'expired') throw new Error('Room has expired');
-        const roomState = (roomData as any).state || {};
-        const roomBots = roomState.bots || {};
-        const activePlayersCount = roomState.playerCount || 4;
-        
-        const activeColors = COLORS.slice(0, activePlayersCount);
-        const availableColors = activeColors.filter(c => !usedColors.includes(c) && !roomBots[c]);
-        
-        if (availableColors.length === 0) throw new Error('Room is full');
-        
-        await insforge.database.from('room_players').insert([{ room_id: roomId, user_id: userId, color: availableColors[0], is_host: false }]);
+        const { data: players } = await insforge.database.from('room_players').select('color, user_id').eq('room_id', roomId);
+        const existingPlayer = (players as any[])?.find(p => p.user_id === userId);
+
+        if (!existingPlayer) {
+          const usedColors = (players as any[])?.map(p => p.color) || [];
+          
+          const { data: roomData } = await insforge.database.from('rooms').select('state, status').eq('id', roomId).single();
+          if ((roomData as any).status === 'expired') throw new Error('Room has expired');
+          const roomState = (roomData as any).state || {};
+          const roomBots = roomState.bots || {};
+          const activePlayersCount = roomState.playerCount || 4;
+          
+          const activeColors = COLORS.slice(0, activePlayersCount);
+          const availableColors = activeColors.filter(c => !usedColors.includes(c) && !roomBots[c]);
+          
+          if (availableColors.length === 0) throw new Error('Room is full');
+          
+          await insforge.database.from('room_players').upsert(
+            [{ room_id: roomId, user_id: userId, color: availableColors[0], is_host: false }],
+            { onConflict: 'room_id,user_id' }
+          );
+        }
       }
 
       navigate(`/room/${roomId}`);

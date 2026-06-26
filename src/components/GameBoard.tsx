@@ -45,7 +45,7 @@ const HOME_PATHS: Record<PlayerColor, { x: number; y: number }[]> = {
 const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
 
 export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<string, string> }> = ({ playerColor, colorNames }) => {
-  const { tokens, currentTurn, diceRoll, rollDice, moveToken, consecutiveSixes } = useGameStore();
+  const { tokens, currentTurn, diceRoll, rollDice, moveToken } = useGameStore();
   const [isRolling, setIsRolling] = useState(false);
 
   const handleRoll = () => {
