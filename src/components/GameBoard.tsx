@@ -45,7 +45,7 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
   const handleRoll = () => {
     setIsRolling(true);
     rollDice();
-    setTimeout(() => setIsRolling(false), 500); // 500ms debounce rate limit
+    setTimeout(() => setIsRolling(false), 1500); // 1.5s debounce rate limit
   };
 
   return (
@@ -86,9 +86,14 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<
       </div>
 
       {/* Board */}
-      <div className="flex-1 w-full min-h-0 min-w-0 flex justify-center items-center overflow-hidden">
+      <div className="flex-1 w-full h-full min-h-0 flex items-center justify-center overflow-hidden pt-4 md:pt-0">
         <div 
-          className="relative glass-panel p-1 shadow-2xl backdrop-blur-sm mx-auto flex-shrink aspect-square w-full max-w-[min(100vw,70vh)]"
+          className="relative glass-panel p-1 shadow-2xl backdrop-blur-sm mx-auto"
+          style={{ 
+            width: '100%', 
+            maxWidth: 'min(100%, 75vh)', // Strictly prevents vertical overflow
+            aspectRatio: '1 / 1'
+          }}
         >
           <div 
             className="grid gap-0 bg-[var(--panel-border)] p-1 rounded-xl w-full h-full"

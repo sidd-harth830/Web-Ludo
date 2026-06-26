@@ -222,7 +222,7 @@ export const Room: React.FC = () => {
       </div>
 
       {/* Center Board */}
-      <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center p-2 md:p-4 overflow-hidden relative pb-20 md:pb-4">
+      <div className="flex-1 w-full h-full min-w-0 min-h-0 flex flex-col items-center justify-center p-2 md:p-4 overflow-hidden">
         <GameBoard playerColor={playerColor} colorNames={colorNames} />
       </div>
 
