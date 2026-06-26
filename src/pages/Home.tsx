@@ -32,7 +32,7 @@ export const Home: React.FC = () => {
       if (encodedCode) {
         try {
           targetCode = atob(encodedCode);
-        } catch (e) {
+        } catch {
           // ignore invalid base64
         }
       } else if (queryCode) {
@@ -51,6 +51,7 @@ export const Home: React.FC = () => {
       }
     };
     initInvite();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const toggleBot = (color: PlayerColor) => {
@@ -97,7 +98,7 @@ export const Home: React.FC = () => {
         if (isAllBots) {
           roomId = 'local';
           import('../store/gameStore').then(({ useGameStore }) => {
-            useGameStore.getState().initGameConfig(playerCount, bots);
+            useGameStore.getState().forceSyncState({ playerCount, bots });
           });
         } else {
           const gameState = { playerCount, bots };
@@ -135,9 +136,8 @@ export const Home: React.FC = () => {
           
           if (availableColors.length === 0) throw new Error('Room is full');
           
-          await insforge.database.from('room_players').upsert(
-            [{ room_id: roomId, user_id: userId, color: availableColors[0], is_host: false }],
-            { onConflict: 'room_id,user_id' }
+          await insforge.database.from('room_players').insert(
+            [{ room_id: roomId, user_id: userId, color: availableColors[0], is_host: false }]
           );
         }
       }
@@ -199,28 +199,32 @@ export const Home: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4 bg-[var(--bg-canvas)] relative">
-      {/* Sky wash gradient background for hero */}
-      <div className="absolute top-0 inset-x-0 h-[600px] bg-gradient-to-b from-[var(--gradient-sky-light,#cfe7ff)] to-[var(--gradient-sky-mid,#a8c8e8)] opacity-20 pointer-events-none -z-10 dark:opacity-0" />
+    <div className="flex-1 flex flex-col items-center justify-center p-4 bg-[var(--bg-canvas)] relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/20 rounded-full mix-blend-multiply filter blur-[100px] animate-blob" />
+        <div className="absolute top-[20%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/20 rounded-full mix-blend-multiply filter blur-[100px] animate-blob" style={{ animationDelay: '2s' }} />
+        <div className="absolute bottom-[-20%] left-[20%] w-[40%] h-[40%] bg-amber-500/20 rounded-full mix-blend-multiply filter blur-[100px] animate-blob" style={{ animationDelay: '4s' }} />
+      </div>
       
-      <div className="mb-12 text-center relative z-10">
-        <h1 className="text-[64px] leading-[1.05] tracking-[-1.92px] font-semibold text-ink mb-4">Web Ludo</h1>
-        <p className="text-[18px] text-body">Multiplayer Board Game Platform</p>
+      <div className="mb-12 text-center relative z-10 animate-float">
+        <h1 className="text-[64px] md:text-[80px] leading-[1.05] tracking-tight font-extrabold text-gradient mb-4 drop-shadow-sm">Web Ludo</h1>
+        <p className="text-[18px] font-medium text-body/80 tracking-wide uppercase">Multiplayer Board Game Platform</p>
       </div>
 
       <div className="feature-card w-full max-w-md p-0 overflow-hidden relative z-10">
         {/* Tabs */}
-        <div className="flex border-b border-hairline-strong">
+        <div className="flex p-1.5 m-3 bg-black/5 dark:bg-white/5 rounded-xl border border-hairline relative z-20">
           <button
             type="button"
-            className={`flex-1 py-4 text-[14px] font-medium transition-colors ${activeTab === 'join' ? 'text-ink border-b-2 border-primary bg-surface-strong/30' : 'text-body hover:text-ink hover:bg-surface-strong/10'}`}
+            className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all duration-300 ${activeTab === 'join' ? 'bg-white dark:bg-surface-dark text-primary shadow-sm' : 'text-muted hover:text-ink'}`}
             onClick={() => setActiveTab('join')}
           >
             Join Game
           </button>
           <button
             type="button"
-            className={`flex-1 py-4 text-[14px] font-medium transition-colors ${activeTab === 'host' ? 'text-ink border-b-2 border-primary bg-surface-strong/30' : 'text-body hover:text-ink hover:bg-surface-strong/10'}`}
+            className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all duration-300 ${activeTab === 'host' ? 'bg-white dark:bg-surface-dark text-primary shadow-sm' : 'text-muted hover:text-ink'}`}
             onClick={() => setActiveTab('host')}
           >
             Host Game

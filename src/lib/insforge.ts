@@ -2,7 +2,7 @@ import { createClient as createInsForgeClient } from '@insforge/sdk';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 const insforgeUrl = import.meta.env.VITE_INSFORGE_URL || 'https://943byj73.ap-southeast.insforge.app';
-const insforgeAnonKey = import.meta.env.VITE_INSFORGE_ANON_KEY || 'ik_07fbca94276a8694b39c8359178a7002';
+const insforgeAnonKey = import.meta.env.VITE_INSFORGE_ANON_KEY || 'anon_bcdb4af5b3c995dab2a7cf2a1db1d0955a4b55acc3bae88d28b33f978ed5ea80';
 
 const sdkClient = createInsForgeClient({
   baseUrl: insforgeUrl,

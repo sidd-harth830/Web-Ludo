@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { insforge } from '../lib/insforge';
 import { Send, X } from 'lucide-react';
+import { useGameStore } from '../store/gameStore';
+import { socket } from '../lib/socket';
 
 interface ChatMessage {
   id: string;
@@ -12,6 +14,7 @@ interface ChatMessage {
 export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Record<string, string>; onClose?: () => void }> = ({ roomId, userId, userMap, onClose }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const { isSocketConnected } = useGameStore();
   const [lastSentAt, setLastSentAt] = useState(0);
   const [isRateLimited, setIsRateLimited] = useState(false);
   
@@ -29,31 +32,24 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
     };
 
     fetchMessages();
-
-    let subscribedChannel: string | null = null;
     
-    const handleNewMessage = (payload: any) => {
-      if (payload) {
-        const msg = payload as ChatMessage;
+    const handleNewMessage = (msg: any) => {
+      if (msg) {
         setMessages((prev) => {
           if (prev.some(m => m.id === msg.id)) return prev;
-          return [...prev, msg];
+          return [...prev, msg as ChatMessage];
         });
       }
     };
 
     if (roomId !== 'local') {
-      const channelName = `chat_${roomId}`;
-      insforge.realtime.subscribe(channelName).then(res => {
-        if (res.ok) subscribedChannel = channelName;
-      });
-
-      insforge.realtime.on('NEW_MESSAGE', handleNewMessage);
+      socket.on('NEW_CHAT', handleNewMessage);
     }
 
     return () => {
-      if (subscribedChannel) insforge.realtime.unsubscribe(subscribedChannel);
-      insforge.realtime.off('NEW_MESSAGE', handleNewMessage);
+      if (roomId !== 'local') {
+        socket.off('NEW_CHAT', handleNewMessage);
+      }
     };
   }, [roomId]);
 
@@ -61,9 +57,10 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isRateLimited) return;
+  const QUICK_MESSAGES = ["Hello!", "Good luck!", "Nice move!", "Oops!", "Hurry up!", "Well played!", "Wow!"];
+
+  const sendTextMessage = (text: string) => {
+    if (!text.trim() || isRateLimited || (!isSocketConnected && roomId !== 'local')) return;
 
     const now = Date.now();
     if (now - lastSentAt < 1500) {
@@ -77,17 +74,14 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
     const newMessage = {
       room_id: roomId,
       user_id: userId,
-      content: input.trim(),
+      content: text.trim(),
     };
-
-    const tempInput = input.trim();
-    setInput(''); // Clear immediately for UX
 
     if (roomId !== 'local') {
       const optimisticMsg = { ...newMessage, id: Date.now().toString(), created_at: new Date().toISOString() };
       
       setMessages(prev => [...prev, optimisticMsg as ChatMessage]);
-      insforge.realtime.publish(`chat_${roomId}`, 'NEW_MESSAGE', optimisticMsg).catch(console.error);
+      socket.emit('SEND_CHAT', roomId, optimisticMsg);
 
       // Fire and forget
       insforge.database.from('chat_messages').insert([newMessage]).then();
@@ -97,6 +91,16 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
       setMessages(prev => [...prev, localMsg as ChatMessage]);
     }
   };
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    const textToSubmit = input;
+    setInput(''); // Clear immediately for UX
+    sendTextMessage(textToSubmit);
+  };
+
+
 
   return (
     <div className="bg-surface-card border border-hairline-strong rounded-xl flex flex-col h-full w-full overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.04)]">
@@ -134,18 +138,32 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Reco
         <div ref={endRef} />
       </div>
       
+      <div className="px-3 py-2 bg-surface-card flex gap-2 overflow-x-auto no-scrollbar border-t border-hairline-strong shadow-sm relative z-10">
+        {QUICK_MESSAGES.map((msg, i) => (
+          <button 
+            key={i} 
+            type="button"
+            onClick={() => sendTextMessage(msg)}
+            disabled={isRateLimited || (!isSocketConnected && roomId !== 'local')}
+            className="whitespace-nowrap px-3 py-1 bg-surface-strong/50 hover:bg-surface-strong rounded-full text-xs font-medium text-ink transition-colors disabled:opacity-50"
+          >
+            {msg}
+          </button>
+        ))}
+      </div>
+
       <form onSubmit={sendMessage} className="p-3 border-t border-hairline-strong flex gap-2 bg-surface-card relative">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={isRateLimited ? "Slow down..." : "Type a message..."}
-          disabled={isRateLimited}
-          className={`text-input flex-1 ${isRateLimited ? 'opacity-70' : ''}`}
+          disabled={isRateLimited || (!isSocketConnected && roomId !== 'local')}
+          className="text-input flex-1 disabled:opacity-50"
         />
         <button 
           type="submit" 
-          disabled={!input.trim() || isRateLimited}
+          disabled={!input.trim() || isRateLimited || (!isSocketConnected && roomId !== 'local')}
           className="btn-primary w-11 px-0 flex items-center justify-center shrink-0"
         >
           <Send size={16} />

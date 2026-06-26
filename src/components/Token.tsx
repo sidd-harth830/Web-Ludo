@@ -24,11 +24,9 @@ export const TokenComponent: React.FC<TokenProps> = ({ color, className = '', on
         ${baseClasses} 
         ${colorClasses[color]} 
         ${onClick ? 'cursor-pointer hover:scale-110' : ''} 
-        ${highlight ? 'ring-4 ring-white animate-pulse z-10' : ''}
-        ${className}
+        ${highlight ? 'ring-2 sm:ring-4 ring-white/70 animate-pulse z-10' : ''}
+        ${className || 'w-4 h-4 sm:w-6 sm:h-6 md:w-8 md:h-8'}
       `}
-    >
-      <div className="w-1/2 h-1/2 rounded-full bg-white/30 backdrop-blur-sm" />
-    </div>
+    />
   );
 };

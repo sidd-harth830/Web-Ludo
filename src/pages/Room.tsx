@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Confetti from 'react-confetti';
 import { insforge } from '../lib/insforge';
 import { GameBoard } from '../components/GameBoard';
 import { ChatPanel } from '../components/ChatPanel';
 import { useGameStore } from '../store/gameStore';
 import type { PlayerColor, GameState } from '../store/gameStore';
-import { MessageSquare, Clock, Copy, Share2, Check } from 'lucide-react';
+import { MessageSquare, Clock, Copy, Share2, Check, Trophy } from 'lucide-react';
+import { socket } from '../lib/socket';
 
 export const Room: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -22,8 +24,10 @@ export const Room: React.FC = () => {
   const [isExpired, setIsExpired] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [copied, setCopied] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const { setRoom, syncState, currentTurn, tokens, diceRoll, gameStatus } = useGameStore();
+  const { currentTurn, tokens, diceRoll, gameStatus, points } = useGameStore();
   const botWorkerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
@@ -33,7 +37,7 @@ export const Room: React.FC = () => {
       return;
     }
     setUserId(storedUserId);
-    setRoom(roomId);
+    useGameStore.getState().forceSyncState({ roomId });
 
     const initRoom = async () => {
       if (roomId === 'local') {
@@ -46,10 +50,11 @@ export const Room: React.FC = () => {
           cNames[c] = c === 'emerald' ? 'You' : 'Bot';
         });
         setColorNames(cNames);
-        useGameStore.getState().syncState({ gameStatus: 'playing' });
+        useGameStore.getState().forceSyncState({ gameStatus: 'playing' });
         return;
       }
 
+      let roomConfig = { playerCount: 4, bots: { emerald: false, blue: false, red: false, amber: false } };
       // Fetch Room Config & Expiration
       const { data: roomData } = await insforge.database.from('rooms').select('code, state, status, expires_at').eq('id', roomId).maybeSingle();
       if (roomData) {
@@ -60,13 +65,9 @@ export const Room: React.FC = () => {
         if ((roomData as any).expires_at) {
           setExpiresAt(new Date((roomData as any).expires_at));
         }
-        const state = (roomData as any).state;
-        if (state) {
-          useGameStore.getState().initGameConfig(
-            state.playerCount || 4, 
-            state.bots || { emerald: false, blue: false, red: false, amber: false }
-          );
-        }
+        const stateObj = (roomData as any).state || {};
+        if (stateObj.playerCount) roomConfig.playerCount = stateObj.playerCount;
+        if (stateObj.bots) roomConfig.bots = stateObj.bots;
       }
 
       // Fetch player info & usernames
@@ -75,6 +76,9 @@ export const Room: React.FC = () => {
         .select('color, user_id, is_host, users(username)')
         .eq('room_id', roomId);
       
+      let pColor: PlayerColor = 'emerald';
+      let uName = localStorage.getItem('ludo_username') || 'Unknown';
+
       if (players) {
         const pNames: Record<string, string> = {};
         const cNames: Record<string, string> = {};
@@ -85,128 +89,45 @@ export const Room: React.FC = () => {
           cNames[p.color] = uname;
           if (p.user_id === storedUserId) {
             setPlayerColor(p.color as PlayerColor);
-            setIsHost(p.is_host);
-            useGameStore.getState().setIsHost(p.is_host);
+            pColor = p.color as PlayerColor;
+            if (p.is_host) setIsHost(true);
           }
         });
         setPlayerNames(pNames);
         setColorNames(cNames);
+      }
+
+      if (roomId !== 'local') {
+        socket.connect();
         
-        const storeState = useGameStore.getState();
-        const requiredHumans = storeState.playerCount - Object.values(storeState.bots).filter(Boolean).length;
-        if (players.length >= requiredHumans) {
-          useGameStore.getState().syncState({ gameStatus: 'playing' });
-        }
+        socket.on('connect', () => {
+          useGameStore.getState().setSocketConnected(true);
+          socket.emit('JOIN_ROOM', roomId, { username: uName, color: pColor }, roomConfig);
+        });
+
+        socket.on('STATE_UPDATE', (newState: GameState) => {
+          useGameStore.getState().forceSyncState(newState);
+        });
+
+        socket.on('disconnect', () => {
+          useGameStore.getState().setSocketConnected(false);
+        });
+
+        socket.on('PLAYER_LEFT', (username: string) => {
+          setToastMessage(`${username} left the game!`);
+          setTimeout(() => setToastMessage(null), 3000);
+        });
       }
     };
     initRoom();
-    
+
     const handleBeforeUnload = () => {
-      if (roomId && roomId !== 'local' && storedUserId) {
-        insforge.database.from('room_players').delete().match({ room_id: roomId, user_id: storedUserId }).then();
-        if (useGameStore.getState().activePlayers.length <= 1) {
-          insforge.database.from('rooms').update({ status: 'finished' }).eq('id', roomId).then();
-        }
+      // Disconnect immediately on unload
+      if (roomId !== 'local') {
+        socket.disconnect();
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
-
-    let subscribedChannel: string | null = null;
-    let unsubStore: (() => void) | null = null;
-    
-    const handleAuthoritativeSync = (payload: any) => {
-      const state = useGameStore.getState();
-      if (!state.isHost && payload) {
-        useGameStore.getState().forceSyncState(payload as GameState);
-      }
-    };
-
-    const handleIntentRoll = (payload: any) => {
-      const state = useGameStore.getState();
-      if (state.isHost && payload && payload.color === state.currentTurn) {
-        useGameStore.getState().rollDice();
-      }
-    };
-
-    const handleIntentMove = (payload: any) => {
-      const state = useGameStore.getState();
-      if (state.isHost && payload && payload.color === state.currentTurn) {
-        useGameStore.getState().moveToken(payload.tokenId, payload.color);
-      }
-    };
-    
-    const handlePresenceJoin = (message: any) => {
-      const storeState = useGameStore.getState();
-      const newPlayers = [...new Set([...storeState.activePlayers, message.member.presenceId])];
-      useGameStore.getState().syncState({ activePlayers: newPlayers });
-      const requiredHumans = storeState.playerCount - Object.values(storeState.bots).filter(Boolean).length;
-      if (newPlayers.length >= requiredHumans) {
-        useGameStore.getState().syncState({ gameStatus: 'playing' });
-      }
-    };
-
-    const handlePresenceLeave = (message: any) => {
-      const storeState = useGameStore.getState();
-      const newPlayers = storeState.activePlayers.filter(id => id !== message.member.presenceId);
-      useGameStore.getState().syncState({ activePlayers: newPlayers });
-      const requiredHumans = storeState.playerCount - Object.values(storeState.bots).filter(Boolean).length;
-      
-      if (newPlayers.length === 0) {
-        insforge.database.from('rooms').update({ status: 'finished' }).eq('id', roomId).then();
-      } else if (storeState.gameStatus === 'playing' && newPlayers.length < requiredHumans) {
-        useGameStore.getState().syncState({ gameStatus: 'paused' });
-      }
-    };
-
-    // Phase 3: Fallback Polling
-    const checkPlayers = async () => {
-      if (useGameStore.getState().gameStatus !== 'waiting') return;
-      const { count } = await insforge.database.from('room_players').select('*', { count: 'exact', head: true }).eq('room_id', roomId);
-      const storeState = useGameStore.getState();
-      const requiredHumans = storeState.playerCount - Object.values(storeState.bots).filter(Boolean).length;
-      if (count && count >= requiredHumans) {
-        useGameStore.getState().syncState({ gameStatus: 'playing' });
-      }
-    };
-    const fallbackInterval = setInterval(checkPlayers, 3000);
-
-    if (roomId !== 'local') {
-      const setupSocket = async () => {
-        try {
-          await insforge.realtime.connect();
-          const channelName = `game_${roomId}`;
-          const res = await insforge.realtime.subscribe(channelName);
-          if (res.ok) {
-            subscribedChannel = channelName;
-            const activeKeys = res.presence.members.map(m => m.presenceId);
-            useGameStore.getState().syncState({ activePlayers: activeKeys });
-            const storeState = useGameStore.getState();
-            const requiredHumans = storeState.playerCount - Object.values(storeState.bots).filter(Boolean).length;
-            if (activeKeys.length >= requiredHumans) {
-              useGameStore.getState().syncState({ gameStatus: 'playing' });
-            }
-          }
-        } catch (e) {
-          console.error('Socket connect failed', e);
-        }
-      };
-      
-      insforge.realtime.on('AUTHORITATIVE_SYNC', handleAuthoritativeSync);
-      insforge.realtime.on('INTENT_ROLL', handleIntentRoll);
-      insforge.realtime.on('INTENT_MOVE', handleIntentMove);
-      insforge.realtime.on('presence:join', handlePresenceJoin);
-      insforge.realtime.on('presence:leave', handlePresenceLeave);
-      
-      setupSocket();
-
-      // Host duties: Broadcast state changes
-      unsubStore = useGameStore.subscribe((state) => {
-        if (state.isHost && state.roomId && state.roomId !== 'local') {
-          // Fire and forget
-          insforge.realtime.publish(`game_${state.roomId}`, 'AUTHORITATIVE_SYNC', state).catch(console.error);
-        }
-      });
-    }
 
     // Setup Bot Worker
     botWorkerRef.current = new Worker(new URL('../workers/botWorker.ts', import.meta.url), { type: 'module' });
@@ -214,26 +135,47 @@ export const Room: React.FC = () => {
       if (e.data.type === 'MOVE_RESULT') {
         const turn = useGameStore.getState().currentTurn;
         if (e.data.tokenId !== null) {
-          useGameStore.getState().moveToken(e.data.tokenId, turn);
-        } else {
-          useGameStore.getState().passTurn();
+          socket.emit('REQUEST_MOVE', roomId, e.data.tokenId, turn);
         }
       }
     };
 
     return () => {
+      useGameStore.getState().setSocketConnected(false);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      clearInterval(fallbackInterval);
-      if (subscribedChannel) insforge.realtime.unsubscribe(subscribedChannel);
-      insforge.realtime.off('AUTHORITATIVE_SYNC', handleAuthoritativeSync);
-      insforge.realtime.off('INTENT_ROLL', handleIntentRoll);
-      insforge.realtime.off('INTENT_MOVE', handleIntentMove);
-      insforge.realtime.off('presence:join', handlePresenceJoin);
-      insforge.realtime.off('presence:leave', handlePresenceLeave);
-      if (unsubStore) unsubStore();
+      if (roomId !== 'local') {
+        socket.off('STATE_UPDATE');
+        socket.off('connect');
+        socket.off('disconnect');
+        socket.disconnect();
+      }
       botWorkerRef.current?.terminate();
     };
-  }, [roomId, navigate, setRoom, syncState]);
+  }, [roomId, navigate]);
+
+  // Unread Messages Listener
+  useEffect(() => {
+    const handleNewMessage = () => {
+      if (!showChat && window.innerWidth < 768) {
+        setUnreadCount(prev => prev + 1);
+      }
+    };
+    if (roomId !== 'local') {
+      socket.on('NEW_CHAT', handleNewMessage);
+    }
+    return () => {
+      if (roomId !== 'local') {
+        socket.off('NEW_CHAT', handleNewMessage);
+      }
+    };
+  }, [roomId, showChat]);
+
+  // Reset unread when chat is opened
+  useEffect(() => {
+    if (showChat) {
+      setUnreadCount(0);
+    }
+  }, [showChat]);
 
   // Expiration Timer Effect
   useEffect(() => {
@@ -259,7 +201,18 @@ export const Room: React.FC = () => {
 
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
+
+    // Also force re-render for turn progress bar
+    const progressInterval = setInterval(() => {
+      if (useGameStore.getState().gameStatus === 'playing') {
+        setTimeLeft(prev => prev); // dummy state update to force re-render of progress bar
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(progressInterval);
+    };
   }, [expiresAt, isExpired, isHost, roomId]);
 
   // Bot logic trigger
@@ -272,7 +225,7 @@ export const Room: React.FC = () => {
     if (diceRoll === null && !state.hasRolled) {
       // Roll the dice for the bot
       const timer = setTimeout(() => {
-        useGameStore.getState().rollDice();
+        socket.emit('REQUEST_ROLL', roomId);
       }, 800);
       return () => clearTimeout(timer);
     } else if (diceRoll !== null && state.hasRolled) {
@@ -307,20 +260,67 @@ export const Room: React.FC = () => {
   const state = useGameStore.getState();
   const isBotTurn = state.bots[currentTurn];
 
+// ... (in Room component)
+  const isFinished = state.gameStatus === 'finished';
+  const hasWinners = state.winners && state.winners.length > 0;
+
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden flex flex-col md:flex-row bg-[var(--bg-primary)] overscroll-none">
-      
+      {hasWinners && <Confetti width={window.innerWidth} height={window.innerHeight} recycle={isFinished} />}
+
+      {(isFinished || hasWinners) && (
+        <div className="absolute inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-md pointer-events-none">
+          <div className="feature-card p-10 flex flex-col items-center gap-6 max-w-sm text-center shadow-[0_0_50px_rgba(234,179,8,0.2)] scale-105 transition-transform pointer-events-auto mt-[-10%] border-amber-500/30">
+            <div className="relative">
+              <div className="absolute inset-0 bg-yellow-500 blur-2xl opacity-30 rounded-full animate-pulse-slow"></div>
+              <Trophy className="text-yellow-500 w-20 h-20 relative z-10 animate-float" />
+            </div>
+            <h2 className="text-[32px] font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-yellow-300 to-amber-600">
+               {isFinished ? "Game Over!" : "We have a winner!"}
+            </h2>
+            <div className="flex flex-col gap-3 w-full text-left max-h-64 overflow-y-auto pr-2">
+              {state.winners.map((winner: any, index: number) => (
+                <div key={winner} className={`p-3 rounded-lg flex items-center justify-between border-2 border-${winner}-500 bg-${winner}-500/10`}>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-lg capitalize">{index + 1}{index === 0 ? 'st' : index === 1 ? 'nd' : index === 2 ? 'rd' : 'th'} Place</span>
+                    <span className={`text-${winner}-500 font-bold capitalize`}>{colorNames[winner] || winner}</span>
+                  </div>
+                  <span className="text-xl font-bold bg-surface-dark text-on-dark px-3 py-1 rounded-full">{points[winner as PlayerColor]} pts</span>
+                </div>
+              ))}
+            </div>
+            {isFinished && (
+              <button onClick={() => navigate('/')} className="btn-primary w-full mt-4">
+                Play Again
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {isExpired && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-surface-dark/80 backdrop-blur-sm">
-          <div className="feature-card p-8 flex flex-col items-center gap-6 max-w-sm text-center shadow-2xl scale-105 transition-transform animate-in zoom-in duration-300">
-            <h2 className="text-[28px] font-bold text-red-500">Room Expired</h2>
-            <p className="text-body">The 30-minute time limit for this room has ended.</p>
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md">
+          <div className="feature-card p-10 flex flex-col items-center gap-6 max-w-sm text-center shadow-[0_0_50px_rgba(239,68,68,0.2)] border-red-500/30 scale-105 transition-transform animate-in zoom-in duration-300">
+            <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center">
+              <Clock className="text-red-500 w-8 h-8" />
+            </div>
+            <h2 className="text-[32px] font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-red-400 to-red-600">Room Expired</h2>
+            <p className="text-body text-lg">The 30-minute time limit for this room has ended.</p>
             <button 
               onClick={() => navigate('/')}
               className="btn-primary w-full"
             >
               Return to Home
             </button>
+          </div>
+        </div>
+      )}
+
+      {toastMessage && (
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top fade-in duration-300">
+          <div className="bg-surface-dark text-on-dark px-6 py-3 rounded-full shadow-2xl border border-hairline-strong font-semibold flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+            {toastMessage}
           </div>
         </div>
       )}
@@ -369,6 +369,7 @@ export const Room: React.FC = () => {
           </div>
           <button 
             onClick={() => {
+              if (roomId !== 'local') socket.disconnect();
               useGameStore.getState().resetGame();
               navigate('/');
             }}
@@ -380,9 +381,29 @@ export const Room: React.FC = () => {
 
         <div className="feature-card hidden md:block">
            <h3 className="font-bold mb-2 text-[11px] uppercase tracking-widest text-muted">Current Turn</h3>
-           <div className={`text-2xl font-bold capitalize text-${currentTurn}-500 flex items-center gap-2`}>
+           <div className={`text-2xl font-bold capitalize text-${currentTurn}-500 flex items-center gap-2 mb-2`}>
              {currentTurn} 
              {isBotTurn && <span className="text-[10px] bg-surface-dark text-on-dark px-2 py-0.5 rounded-pill uppercase">Bot</span>}
+           </div>
+           {state.turnEndTime > 0 && gameStatus === 'playing' && (
+             <div className="w-full h-1.5 bg-surface-dark rounded-full overflow-hidden">
+               <div 
+                 className={`h-full bg-${currentTurn}-500 transition-all duration-1000 ease-linear`}
+                 style={{ width: `${Math.max(0, Math.min(100, ((state.turnEndTime - Date.now()) / 15000) * 100))}%` }}
+               />
+             </div>
+           )}
+        </div>
+
+        <div className="feature-card hidden md:block">
+           <h3 className="font-bold mb-2 text-[11px] uppercase tracking-widest text-muted">Scoreboard</h3>
+           <div className="flex flex-col gap-2">
+             {['emerald', 'blue', 'red', 'amber'].slice(0, state.playerCount).map(c => (
+               <div key={c} className={`flex justify-between items-center text-sm font-bold ${c === currentTurn ? `text-${c}-500` : 'text-muted'}`}>
+                 <span className="capitalize">{colorNames[c] || c}</span>
+                 <span className="bg-surface-dark text-on-dark px-2 py-0.5 rounded">{points[c as PlayerColor] || 0}</span>
+               </div>
+             ))}
            </div>
         </div>
       </div>
@@ -390,11 +411,14 @@ export const Room: React.FC = () => {
       {/* Center Board */}
       <div className="flex-1 w-full h-full min-w-0 min-h-0 flex flex-col items-center justify-center p-2 md:p-4 overflow-hidden relative">
         {gameStatus === 'waiting' && roomId !== 'local' && (
-          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[var(--bg-canvas)]/80 backdrop-blur-sm">
-            <div className="feature-card text-center p-8 max-w-sm">
-              <h2 className="text-2xl font-bold mb-2 text-ink">Waiting for players...</h2>
-              <p className="text-body text-sm mb-4">Share the room code for others to join.</p>
-              <div className="font-mono text-xl font-bold bg-surface-strong px-4 py-2 rounded border border-hairline-strong mb-6">
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-md">
+            <div className="feature-card text-center p-10 max-w-sm border-t-4 border-t-primary shadow-[0_0_40px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_rgba(255,255,255,0.05)] animate-float">
+              <div className="w-16 h-16 rounded-full bg-primary/5 dark:bg-primary/20 flex items-center justify-center mx-auto mb-6 animate-pulse-slow">
+                <Clock className="text-primary w-8 h-8" />
+              </div>
+              <h2 className="text-2xl font-bold mb-3 text-ink">Waiting for players...</h2>
+              <p className="text-body text-sm mb-8">Share the room code for others to join.</p>
+              <div className="font-mono text-xl font-bold bg-surface-strong px-6 py-4 rounded-xl border border-hairline-strong shadow-inner">
                 {roomCode}
               </div>
             </div>
@@ -432,6 +456,11 @@ export const Room: React.FC = () => {
         className="md:hidden fixed bottom-6 right-6 p-4 rounded-full bg-primary text-on-primary shadow-[0_4px_12px_rgba(0,0,0,0.15)] z-40 hover:scale-105 transition-transform"
       >
         <MessageSquare size={24} />
+        {unreadCount > 0 && (
+          <span className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-[var(--bg-primary)]">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
       </button>
 
     </div>

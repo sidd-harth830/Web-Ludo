@@ -4,79 +4,80 @@
 
 @layer base {
   :root {
-    --bg-canvas: #ffffff;
-    --bg-canvas-soft: #fafafa;
-    --surface-card: #ffffff;
-    --surface-strong: #f0f0f3;
-    --surface-dark: #171717;
-    --surface-dark-elevated: #1a1a1a;
-    --primary: #000000;
-    --primary-active: #1a1a1a;
-    --ink: #171717;
-    --body: #60646c;
-    --muted: #999999;
-    --hairline: #f0f0f3;
-    --hairline-strong: #dcdee0;
-    --text-link: #0d74ce;
+    --bg-canvas: #f8fafc;
+    --bg-canvas-soft: #f1f5f9;
+    --surface-card: rgba(255, 255, 255, 0.7);
+    --surface-strong: rgba(255, 255, 255, 0.9);
+    --surface-dark: #0f172a;
+    --surface-dark-elevated: #1e293b;
+    --primary: #0f172a;
+    --primary-active: #1e293b;
+    --ink: #0f172a;
+    --body: #475569;
+    --muted: #94a3b8;
+    --hairline: rgba(15, 23, 42, 0.05);
+    --hairline-strong: rgba(15, 23, 42, 0.1);
+    --text-link: #3b82f6;
     --on-primary: #ffffff;
     --on-dark: #ffffff;
     
-    /* Legacy Ludo bindings */
     --bg-primary: var(--bg-canvas);
     --panel-bg: var(--surface-card);
     --panel-border: var(--hairline-strong);
     --text-primary: var(--ink);
     --highlight-secondary: var(--primary);
-    --panel-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    --panel-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.05);
   }
 
   .dark {
-    --bg-canvas: #000000;
-    --bg-canvas-soft: #111111;
-    --surface-card: #171717;
-    --surface-strong: #222222;
-    --surface-dark: #111111;
-    --surface-dark-elevated: #1a1a1a;
-    --primary: #ffffff;
-    --primary-active: #e6e6e6;
-    --ink: #ffffff;
-    --body: #888888;
-    --muted: #666666;
-    --hairline: #222222;
-    --hairline-strong: #333333;
-    --text-link: #3b82f6;
-    --on-primary: #000000;
-    --on-dark: #ffffff;
+    --bg-canvas: #020617;
+    --bg-canvas-soft: #0f172a;
+    --surface-card: rgba(15, 23, 42, 0.6);
+    --surface-strong: rgba(30, 41, 59, 0.8);
+    --surface-dark: #020617;
+    --surface-dark-elevated: #0f172a;
+    --primary: #f8fafc;
+    --primary-active: #e2e8f0;
+    --ink: #f8fafc;
+    --body: #94a3b8;
+    --muted: #64748b;
+    --hairline: rgba(248, 250, 252, 0.05);
+    --hairline-strong: rgba(248, 250, 252, 0.1);
+    --text-link: #60a5fa;
+    --on-primary: #020617;
+    --on-dark: #f8fafc;
     
-    /* Legacy Ludo bindings */
     --bg-primary: var(--bg-canvas);
     --panel-bg: var(--surface-card);
     --panel-border: var(--hairline-strong);
     --text-primary: var(--ink);
     --highlight-secondary: var(--primary);
-    --panel-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
   }
 
   body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    @apply min-h-screen font-sans transition-colors duration-200;
+    @apply min-h-screen font-sans transition-colors duration-300 antialiased selection:bg-primary selection:text-on-primary;
   }
 }
 
 @layer components {
-  /* GetDesign Expo Components */
   .btn-primary {
-    @apply rounded-md px-[18px] py-[10px] text-[14px] font-medium h-[40px] flex items-center justify-center transition-colors whitespace-nowrap;
+    @apply rounded-xl px-5 py-2.5 text-sm font-semibold h-11 flex items-center justify-center transition-all duration-300 whitespace-nowrap shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 relative overflow-hidden;
     background-color: var(--primary);
     color: var(--on-primary);
   }
-  .btn-primary:hover {
-    background-color: var(--primary-active);
+  .btn-primary::after {
+    content: '';
+    @apply absolute inset-0 bg-white/20 opacity-0 transition-opacity duration-300;
+  }
+  .btn-primary:hover::after {
+    @apply opacity-100;
   }
   
   .btn-secondary {
-    @apply rounded-md px-[17px] py-[9px] text-[14px] font-medium h-[40px] border flex items-center justify-center transition-colors whitespace-nowrap shadow-sm;
+    @apply rounded-xl px-5 py-2.5 text-sm font-semibold h-11 border flex items-center justify-center transition-all duration-300 whitespace-nowrap shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 backdrop-blur-md;
     background-color: var(--surface-card);
     color: var(--ink);
     border-color: var(--hairline-strong);
@@ -86,8 +87,7 @@
   }
   
   .text-input {
-    @apply rounded-md px-[16px] py-[12px] h-[44px] border focus:outline-none focus:ring-1 transition-all w-full text-[14px];
-    background-color: var(--surface-card);
+    @apply rounded-xl px-4 py-3 h-12 border focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 w-full text-sm shadow-sm hover:border-blue-500/50 backdrop-blur-md bg-white/50 dark:bg-black/20;
     color: var(--ink);
     border-color: var(--hairline-strong);
   }
@@ -95,12 +95,11 @@
     color: var(--muted);
   }
   .text-input:focus {
-    border-color: var(--ink);
-    --tw-ring-color: var(--ink);
+    border-color: var(--primary);
   }
   
   .feature-card {
-    @apply rounded-lg p-[24px] border shadow-[0_4px_12px_rgba(0,0,0,0.04)];
+    @apply rounded-2xl p-6 border shadow-glass dark:shadow-glass-dark backdrop-blur-xl transition-all duration-300;
     background-color: var(--surface-card);
     color: var(--ink);
     border-color: var(--hairline-strong);
@@ -110,42 +109,51 @@
     background-color: var(--panel-bg);
     border-color: var(--panel-border);
     box-shadow: var(--panel-shadow);
-    @apply border rounded-xl;
+    @apply border rounded-2xl backdrop-blur-xl transition-all duration-300;
   }
   
+  /* Modern Premium Tokens */
   .token-emerald {
-    @apply bg-emerald-500 border border-white/30 transition-all duration-200;
-    box-shadow: inset 0 2px 4px rgba(255,255,255,0.25);
-  }
-  .dark .token-emerald {
-    @apply border-emerald-400;
-    box-shadow: inset 0 2px 4px rgba(255,255,255,0.15);
+    @apply transition-all duration-300 relative rounded-full;
+    background: radial-gradient(circle at 30% 30%, #6ee7b7 0%, #10b981 50%, #047857 100%);
+    box-shadow: 
+      0 4px 6px -1px rgba(16, 185, 129, 0.4),
+      inset -3px -3px 6px rgba(0, 0, 0, 0.3),
+      inset 3px 3px 6px rgba(255, 255, 255, 0.6);
   }
 
   .token-blue {
-    @apply bg-blue-500 border border-white/30 transition-all duration-200;
-    box-shadow: inset 0 2px 4px rgba(255,255,255,0.25);
-  }
-  .dark .token-blue {
-    @apply border-blue-400;
-    box-shadow: inset 0 2px 4px rgba(255,255,255,0.15);
+    @apply transition-all duration-300 relative rounded-full;
+    background: radial-gradient(circle at 30% 30%, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%);
+    box-shadow: 
+      0 4px 6px -1px rgba(59, 130, 246, 0.4),
+      inset -3px -3px 6px rgba(0, 0, 0, 0.3),
+      inset 3px 3px 6px rgba(255, 255, 255, 0.6);
   }
 
   .token-red {
-    @apply bg-red-500 border border-white/30 transition-all duration-200;
-    box-shadow: inset 0 2px 4px rgba(255,255,255,0.25);
-  }
-  .dark .token-red {
-    @apply border-red-400;
-    box-shadow: inset 0 2px 4px rgba(255,255,255,0.15);
+    @apply transition-all duration-300 relative rounded-full;
+    background: radial-gradient(circle at 30% 30%, #fca5a5 0%, #ef4444 50%, #b91c1c 100%);
+    box-shadow: 
+      0 4px 6px -1px rgba(239, 68, 68, 0.4),
+      inset -3px -3px 6px rgba(0, 0, 0, 0.3),
+      inset 3px 3px 6px rgba(255, 255, 255, 0.6);
   }
 
   .token-amber {
-    @apply bg-amber-500 border border-white/30 transition-all duration-200;
-    box-shadow: inset 0 2px 4px rgba(255,255,255,0.25);
+    @apply transition-all duration-300 relative rounded-full;
+    background: radial-gradient(circle at 30% 30%, #fcd34d 0%, #f59e0b 50%, #b45309 100%);
+    box-shadow: 
+      0 4px 6px -1px rgba(245, 158, 11, 0.4),
+      inset -3px -3px 6px rgba(0, 0, 0, 0.3),
+      inset 3px 3px 6px rgba(255, 255, 255, 0.6);
   }
-  .dark .token-amber {
-    @apply border-amber-400;
-    box-shadow: inset 0 2px 4px rgba(255,255,255,0.15);
+  
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500;
+  }
+  
+  .dark .text-gradient {
+    @apply bg-gradient-to-r from-white to-slate-300;
   }
 }
