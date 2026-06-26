@@ -48,10 +48,11 @@ export const Home: React.FC = () => {
       if (!roomCode) {
         roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
         const gameState = { playerCount, bots };
+        const expiresAt = new Date(Date.now() + 30 * 60000).toISOString();
 
         const { data: newRoom, error: roomError } = await insforge.database
           .from('rooms')
-          .insert([{ code: roomCode, state: gameState }])
+          .insert([{ code: roomCode, state: gameState, expires_at: expiresAt }])
           .select('id').single();
           
         if (roomError) throw roomError;
@@ -66,7 +67,8 @@ export const Home: React.FC = () => {
         const { data: players } = await insforge.database.from('room_players').select('color').eq('room_id', roomId);
         const usedColors = (players as any[])?.map(p => p.color) || [];
         
-        const { data: roomData } = await insforge.database.from('rooms').select('state').eq('id', roomId).single();
+        const { data: roomData } = await insforge.database.from('rooms').select('state, status').eq('id', roomId).single();
+        if ((roomData as any).status === 'expired') throw new Error('Room has expired');
         const roomState = (roomData as any).state || {};
         const roomBots = roomState.bots || {};
         const activePlayersCount = roomState.playerCount || 4;

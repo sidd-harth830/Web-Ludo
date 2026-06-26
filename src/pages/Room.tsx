@@ -5,7 +5,7 @@ import { GameBoard } from '../components/GameBoard';
 import { ChatPanel } from '../components/ChatPanel';
 import { useGameStore } from '../store/gameStore';
 import type { PlayerColor, GameState } from '../store/gameStore';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Clock } from 'lucide-react';
 
 export const Room: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -15,6 +15,12 @@ export const Room: React.FC = () => {
   const [isHost, setIsHost] = useState(false);
   const [showChat, setShowChat] = useState(false);
   
+  const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
+  const [colorNames, setColorNames] = useState<Record<string, string>>({});
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [isExpired, setIsExpired] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<string>('');
+
   const { setRoom, syncState, currentTurn, tokens, diceRoll } = useGameStore();
   const botWorkerRef = useRef<Worker | null>(null);
 
@@ -28,27 +34,45 @@ export const Room: React.FC = () => {
     setRoom(roomId);
 
     const initRoom = async () => {
-      // Fetch Room Config
-      const { data: roomData } = await insforge.database.from('rooms').select('state').eq('id', roomId).maybeSingle();
-      if (roomData && (roomData as any).state) {
+      // Fetch Room Config & Expiration
+      const { data: roomData } = await insforge.database.from('rooms').select('state, status, expires_at').eq('id', roomId).maybeSingle();
+      if (roomData) {
+        if ((roomData as any).status === 'expired') {
+          setIsExpired(true);
+        }
+        if ((roomData as any).expires_at) {
+          setExpiresAt(new Date((roomData as any).expires_at));
+        }
         const state = (roomData as any).state;
-        useGameStore.getState().initGameConfig(
-          state.playerCount || 4, 
-          state.bots || { emerald: false, blue: false, red: false, amber: false }
-        );
+        if (state) {
+          useGameStore.getState().initGameConfig(
+            state.playerCount || 4, 
+            state.bots || { emerald: false, blue: false, red: false, amber: false }
+          );
+        }
       }
 
-      // Fetch player info
-      const { data } = await insforge.database
+      // Fetch player info & usernames
+      const { data: players } = await insforge.database
         .from('room_players')
-        .select('*')
-        .eq('room_id', roomId)
-        .eq('user_id', storedUserId)
-        .maybeSingle();
+        .select('color, user_id, is_host, users(username)')
+        .eq('room_id', roomId);
       
-      if (data) {
-        setPlayerColor((data as any).color as PlayerColor);
-        setIsHost((data as any).is_host);
+      if (players) {
+        const pNames: Record<string, string> = {};
+        const cNames: Record<string, string> = {};
+        
+        players.forEach((p: any) => {
+          const uname = p.users?.username || 'Unknown';
+          pNames[p.user_id] = uname;
+          cNames[p.color] = uname;
+          if (p.user_id === storedUserId) {
+            setPlayerColor(p.color as PlayerColor);
+            setIsHost(p.is_host);
+          }
+        });
+        setPlayerNames(pNames);
+        setColorNames(cNames);
       }
     };
     initRoom();
@@ -84,9 +108,36 @@ export const Room: React.FC = () => {
     };
   }, [roomId, navigate, setRoom, syncState]);
 
+  // Expiration Timer Effect
+  useEffect(() => {
+    if (!expiresAt || isExpired) return;
+
+    const updateTimer = async () => {
+      const now = new Date().getTime();
+      const target = expiresAt.getTime();
+      const diff = target - now;
+
+      if (diff <= 0) {
+        setTimeLeft('00:00');
+        setIsExpired(true);
+        if (isHost && roomId) {
+          await insforge.database.from('rooms').update({ status: 'expired' }).eq('id', roomId);
+        }
+      } else {
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
+        setTimeLeft(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt, isExpired, isHost, roomId]);
+
   // Bot logic trigger
   useEffect(() => {
-    if (!isHost || !botWorkerRef.current || !roomId) return;
+    if (!isHost || !botWorkerRef.current || !roomId || isExpired) return;
     
     const state = useGameStore.getState();
     if (!state.bots[currentTurn]) return;
@@ -108,7 +159,7 @@ export const Room: React.FC = () => {
       }, 800);
       return () => clearTimeout(timer);
     }
-  }, [currentTurn, diceRoll, isHost, roomId, tokens]);
+  }, [currentTurn, diceRoll, isHost, roomId, tokens, isExpired]);
 
   if (!playerColor || !userId) return <div className="p-8 flex items-center justify-center h-screen bg-[var(--bg-primary)]">Loading Room...</div>;
 
@@ -116,17 +167,41 @@ export const Room: React.FC = () => {
   const isBotTurn = state.bots[currentTurn];
 
   return (
-    <div className="h-[100dvh] w-full overflow-hidden flex flex-col md:flex-row bg-[var(--bg-primary)]">
+    <div className="h-[100dvh] w-full overflow-hidden flex flex-col md:flex-row bg-[var(--bg-primary)] relative">
       
+      {/* Expiration Overlay */}
+      {isExpired && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="glass-panel p-8 flex flex-col items-center gap-6 max-w-sm text-center shadow-2xl scale-105 transition-transform animate-in zoom-in duration-300">
+            <h2 className="text-3xl font-bold text-red-500">Room Expired</h2>
+            <p className="text-slate-200">The 30-minute time limit for this room has ended.</p>
+            <button 
+              onClick={() => navigate('/')}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg font-bold transition-all w-full"
+            >
+              Return to Home
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Left panel */}
       <div className="w-full md:w-64 flex-shrink-0 flex flex-col gap-4 p-4 overflow-y-auto border-b md:border-b-0 md:border-r border-[var(--panel-border)]">
+        
+        {timeLeft && !isExpired && (
+          <div className="glass-panel p-4 flex items-center justify-center gap-3 bg-red-500/10 border-red-500/30">
+            <Clock className="text-red-500" size={20} />
+            <div className="font-mono text-xl font-bold text-red-500">{timeLeft}</div>
+          </div>
+        )}
+
         <div className="glass-panel p-5 flex justify-between items-center md:flex-col md:items-start md:gap-4">
           <div>
             <h2 className="text-xl font-bold">
               Room: <span className="font-mono text-[var(--highlight-secondary)]">{roomId?.substring(0, 8)}</span>
             </h2>
             <p className="text-sm mt-1 opacity-80">
-              Playing as <span className={`font-bold text-${playerColor}-500 capitalize`}>{playerColor}</span>
+              Playing as <span className={`font-bold text-${playerColor}-500 capitalize`}>{colorNames[playerColor] || playerColor}</span>
             </p>
           </div>
           <button 
@@ -148,7 +223,7 @@ export const Room: React.FC = () => {
 
       {/* Center Board */}
       <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center p-2 md:p-4 overflow-hidden relative pb-20 md:pb-4">
-        <GameBoard playerColor={playerColor} />
+        <GameBoard playerColor={playerColor} colorNames={colorNames} />
       </div>
 
       {/* Right Chat (Desktop) / Modal (Mobile) */}
@@ -158,7 +233,7 @@ export const Room: React.FC = () => {
       `}>
         <div className={`w-full h-[70vh] md:h-full flex flex-col transition-transform duration-300 bg-[var(--bg-primary)] md:bg-transparent rounded-t-2xl md:rounded-none ${showChat ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}`}>
            <div className="flex-1 w-full h-full overflow-hidden relative">
-             {roomId && userId && <ChatPanel roomId={roomId} userId={userId} onClose={() => setShowChat(false)} />}
+             {roomId && userId && <ChatPanel roomId={roomId} userId={userId} userMap={playerNames} onClose={() => setShowChat(false)} />}
            </div>
         </div>
       </div>

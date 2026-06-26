@@ -9,9 +9,12 @@ interface ChatMessage {
   created_at: string;
 }
 
-export const ChatPanel: React.FC<{ roomId: string; userId: string; onClose?: () => void }> = ({ roomId, userId, onClose }) => {
+export const ChatPanel: React.FC<{ roomId: string; userId: string; userMap: Record<string, string>; onClose?: () => void }> = ({ roomId, userId, userMap, onClose }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [lastSentAt, setLastSentAt] = useState(0);
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,7 +58,16 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; onClose?: () 
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isRateLimited) return;
+
+    const now = Date.now();
+    if (now - lastSentAt < 1500) {
+      setIsRateLimited(true);
+      setTimeout(() => setIsRateLimited(false), 1500 - (now - lastSentAt));
+      return;
+    }
+    
+    setLastSentAt(now);
 
     const newMessage = {
       room_id: roomId,
@@ -70,7 +82,6 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; onClose?: () 
 
     if (!error && data) {
       const inserted = (data as any)?.[0] || newMessage;
-      // Manually append our own message instantly to avoid relying solely on the pubsub loop for sender
       setMessages(prev => {
         if (prev.some(m => m.id === inserted.id)) return prev;
         return [...prev, inserted as ChatMessage];
@@ -92,6 +103,7 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; onClose?: () 
           </button>
         )}
       </div>
+      
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white/30 dark:bg-black/10">
         {messages.length === 0 && (
           <div className="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">
@@ -99,7 +111,12 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; onClose?: () 
           </div>
         )}
         {messages.map((m) => (
-          <div key={m.id} className={`flex ${m.user_id === userId ? 'justify-end' : 'justify-start'}`}>
+          <div key={m.id} className={`flex flex-col ${m.user_id === userId ? 'items-end' : 'items-start'} mb-1`}>
+            {m.user_id !== userId && (
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 ml-1">
+                {userMap[m.user_id] || 'Unknown Player'}
+              </span>
+            )}
             <div className={`px-3 py-2 rounded-lg max-w-[85%] text-sm shadow-sm ${
               m.user_id === userId 
                 ? 'bg-blue-500 text-white rounded-br-sm' 
@@ -111,17 +128,19 @@ export const ChatPanel: React.FC<{ roomId: string; userId: string; onClose?: () 
         ))}
         <div ref={endRef} />
       </div>
-      <form onSubmit={sendMessage} className="p-3 border-t border-slate-200 dark:border-white/10 flex gap-2 bg-slate-50/50 dark:bg-white/5">
+      
+      <form onSubmit={sendMessage} className="p-3 border-t border-slate-200 dark:border-white/10 flex gap-2 bg-slate-50/50 dark:bg-white/5 relative">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 bg-white dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-md px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
+          placeholder={isRateLimited ? "Slow down..." : "Type a message..."}
+          disabled={isRateLimited}
+          className={`flex-1 bg-white dark:bg-black/20 border ${isRateLimited ? 'border-red-300 dark:border-red-500/50 opacity-70' : 'border-slate-300 dark:border-white/10'} rounded-md px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors shadow-inner`}
         />
         <button 
           type="submit" 
-          disabled={!input.trim()}
+          disabled={!input.trim() || isRateLimited}
           className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:hover:bg-blue-500 p-2 rounded-md transition-colors text-white shadow-sm"
         >
           <Send size={16} />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import type { PlayerColor } from '../store/gameStore';
 import { TokenComponent } from './Token';
@@ -8,32 +8,20 @@ import { Dice3, Star } from 'lucide-react';
 const generateTrackCoords = () => {
   const coords: { x: number; y: number }[] = [];
   // Starting from top-left (Emerald start)
-  // Down 6
   for (let i = 1; i <= 5; i++) coords.push({ x: 6, y: i });
-  // Left 6
   for (let i = 5; i >= 0; i--) coords.push({ x: i, y: 6 });
-  // Down 2
   coords.push({ x: 0, y: 7 });
   coords.push({ x: 0, y: 8 });
-  // Right 6
   for (let i = 1; i <= 5; i++) coords.push({ x: i, y: 8 });
-  // Down 6
   for (let i = 9; i <= 14; i++) coords.push({ x: 6, y: i });
-  // Right 2
   coords.push({ x: 7, y: 14 });
   coords.push({ x: 8, y: 14 });
-  // Up 6
   for (let i = 13; i >= 9; i--) coords.push({ x: 8, y: i });
-  // Right 6
   for (let i = 9; i <= 14; i++) coords.push({ x: i, y: 8 });
-  // Up 2
   coords.push({ x: 14, y: 7 });
   coords.push({ x: 14, y: 6 });
-  // Left 6
   for (let i = 13; i >= 9; i--) coords.push({ x: i, y: 6 });
-  // Up 6
   for (let i = 5; i >= 0; i--) coords.push({ x: 8, y: i });
-  // Left 2
   coords.push({ x: 7, y: 0 });
   coords.push({ x: 6, y: 0 });
   return coords;
@@ -50,8 +38,15 @@ const HOME_PATHS: Record<PlayerColor, { x: number; y: number }[]> = {
 
 const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
 
-export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor }) => {
+export const GameBoard: React.FC<{ playerColor: PlayerColor; colorNames: Record<string, string> }> = ({ playerColor, colorNames }) => {
   const { tokens, currentTurn, diceRoll, rollDice, moveToken, consecutiveSixes } = useGameStore();
+  const [isRolling, setIsRolling] = useState(false);
+
+  const handleRoll = () => {
+    setIsRolling(true);
+    rollDice();
+    setTimeout(() => setIsRolling(false), 500); // 500ms debounce rate limit
+  };
 
   return (
     <div className="flex flex-col items-center justify-center gap-2 w-full h-full min-h-0 min-w-0">
@@ -62,7 +57,9 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor 
           <span className="text-xs sm:text-sm opacity-70">Current Turn</span>
           <div className="flex items-center gap-2 mt-1">
             <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-${currentTurn}-500 shadow-[0_0_10px_rgba(255,255,255,0.5)]`} />
-            <span className="font-bold capitalize text-sm sm:text-base">{currentTurn}</span>
+            <span className="font-bold capitalize text-sm sm:text-base">
+              {colorNames[currentTurn] || currentTurn}
+            </span>
           </div>
         </div>
 
@@ -79,8 +76,8 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor 
         </div>
 
         <button 
-          onClick={rollDice}
-          disabled={currentTurn !== playerColor || diceRoll !== null}
+          onClick={handleRoll}
+          disabled={currentTurn !== playerColor || diceRoll !== null || isRolling}
           className="bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 sm:px-4 sm:py-2 rounded-lg font-semibold transition-all flex items-center gap-2 text-xs sm:text-sm ml-2"
         >
           <Dice3 size={16} />
@@ -91,13 +88,7 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor 
       {/* Board */}
       <div className="flex-1 w-full min-h-0 min-w-0 flex justify-center items-center overflow-hidden">
         <div 
-          className="relative glass-panel p-1 shadow-2xl backdrop-blur-sm flex-shrink-0"
-          style={{ 
-            aspectRatio: '1 / 1',
-            width: '10000px',
-            maxWidth: '100%',
-            maxHeight: '100%'
-          }}
+          className="relative glass-panel p-1 shadow-2xl backdrop-blur-sm mx-auto flex-shrink aspect-square w-full max-w-[min(100vw,70vh)]"
         >
           <div 
             className="grid gap-0 bg-[var(--panel-border)] p-1 rounded-xl w-full h-full"
@@ -179,7 +170,7 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor 
           </div>
         </div>
       </div>
-    </div>
+      </div>
     </div>
   );
 };
