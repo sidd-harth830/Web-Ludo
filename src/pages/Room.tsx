@@ -116,7 +116,7 @@ export const Room: React.FC = () => {
   const isBotTurn = state.bots[currentTurn];
 
   return (
-    <div className="h-screen w-full overflow-hidden flex flex-col md:flex-row bg-[var(--bg-primary)]">
+    <div className="h-[100dvh] w-full overflow-hidden flex flex-col md:flex-row bg-[var(--bg-primary)]">
       
       {/* Left panel */}
       <div className="w-full md:w-64 flex-shrink-0 flex flex-col gap-4 p-4 overflow-y-auto border-b md:border-b-0 md:border-r border-[var(--panel-border)]">
@@ -147,10 +147,8 @@ export const Room: React.FC = () => {
       </div>
 
       {/* Center Board */}
-      <div className="flex-grow flex justify-center items-center p-4 min-h-0 overflow-hidden">
-        <div className="aspect-square max-h-full max-w-full flex justify-center items-center w-full h-full">
-          <GameBoard playerColor={playerColor} />
-        </div>
+      <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center p-2 md:p-4 overflow-hidden relative pb-20 md:pb-4">
+        <GameBoard playerColor={playerColor} />
       </div>
 
       {/* Right Chat (Desktop) / Modal (Mobile) */}

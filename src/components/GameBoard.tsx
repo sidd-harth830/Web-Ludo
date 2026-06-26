@@ -54,10 +54,10 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor 
   const { tokens, currentTurn, diceRoll, rollDice, moveToken, consecutiveSixes } = useGameStore();
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 w-full h-full max-h-full">
+    <div className="flex flex-col items-center justify-center gap-2 w-full h-full min-h-0 min-w-0">
       
       {/* Game Header */}
-      <div className="glass-panel p-3 flex gap-4 items-center justify-center w-full max-w-lg z-10 shrink-0">
+      <div className="glass-panel p-2 flex gap-4 items-center justify-center w-full max-w-md shrink-0">
         <div className="flex flex-col items-center">
           <span className="text-xs sm:text-sm opacity-70">Current Turn</span>
           <div className="flex items-center gap-2 mt-1">
@@ -89,14 +89,23 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor 
       </div>
 
       {/* Board */}
-      <div className="relative glass-panel p-2 shadow-2xl backdrop-blur-sm w-full max-w-full aspect-square flex-1 min-h-0">
+      <div className="flex-1 w-full min-h-0 min-w-0 flex justify-center items-center overflow-hidden">
         <div 
-          className="grid gap-0 bg-[var(--panel-border)] p-1 rounded-xl w-full h-full"
+          className="relative glass-panel p-1 shadow-2xl backdrop-blur-sm flex-shrink-0"
           style={{ 
-            gridTemplateColumns: 'repeat(15, minmax(0, 1fr))',
-            gridTemplateRows: 'repeat(15, minmax(0, 1fr))'
+            aspectRatio: '1 / 1',
+            width: '10000px',
+            maxWidth: '100%',
+            maxHeight: '100%'
           }}
         >
+          <div 
+            className="grid gap-0 bg-[var(--panel-border)] p-1 rounded-xl w-full h-full"
+            style={{ 
+              gridTemplateColumns: 'repeat(15, minmax(0, 1fr))',
+              gridTemplateRows: 'repeat(15, minmax(0, 1fr))'
+            }}
+          >
           {/* Base Areas */}
           <BaseArea color="emerald" x={0} y={0} tokens={tokens} playerColor={playerColor} onMove={moveToken} />
           <BaseArea color="amber" x={9} y={0} tokens={tokens} playerColor={playerColor} onMove={moveToken} />
@@ -170,6 +179,7 @@ export const GameBoard: React.FC<{ playerColor: PlayerColor }> = ({ playerColor 
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 };

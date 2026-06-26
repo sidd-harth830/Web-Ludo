@@ -9,7 +9,7 @@ interface TokenProps {
 }
 
 export const TokenComponent: React.FC<TokenProps> = ({ color, className = '', onClick, highlight = false }) => {
-  const baseClasses = 'w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300';
+  const baseClasses = 'rounded-full flex items-center justify-center transition-all duration-300';
   const colorClasses = {
     emerald: 'token-emerald',
     blue: 'token-blue',
@@ -28,7 +28,7 @@ export const TokenComponent: React.FC<TokenProps> = ({ color, className = '', on
         ${className}
       `}
     >
-      <div className="w-4 h-4 rounded-full bg-white/30 backdrop-blur-sm" />
+      <div className="w-1/2 h-1/2 rounded-full bg-white/30 backdrop-blur-sm" />
     </div>
   );
 };
